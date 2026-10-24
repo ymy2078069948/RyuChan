@@ -163,6 +163,15 @@ const bannerSubtitle = pageConfig?.subtitle || "";
     </div>
 
 
+    <!-- Opt-in controls for URL ?wallpaper=1; Wallpaper Engine does not forward mouse wheel events. -->
+    <nav class="wallpaper-controls" aria-label="壁纸模式浏览控制">
+      <a href="/" aria-label="返回博客首页" title="返回博客首页">⌂</a>
+      <button type="button" data-wallpaper-scroll="up" aria-label="向上滚动" title="向上滚动">↑</button>
+      <button type="button" data-wallpaper-scroll="down" aria-label="向下滚动" title="向下滚动">↓</button>
+    </nav>
+    <div class="wallpaper-editor-warning" role="note">编辑和保存配置请在普通浏览器中进行；壁纸模式不适合键盘输入或系统确认框。</div>
+    <script src="/js/wallpaper-mode.js" defer is:inline></script>
+
     <MobileTOC headings={headings} showTOC={showTOC} />
     <GlobalAudio />
 

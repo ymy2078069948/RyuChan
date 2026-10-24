@@ -1672,3 +1672,64 @@ body.am-fullscreen-open footer {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Wallpaper Engine cannot supply wheel input to web wallpapers. Keep this mode opt-in. */
+.wallpaper-controls,
+.wallpaper-editor-warning {
+  display: none;
+}
+
+html[data-wallpaper-mode="on"]:not([data-wallpaper-editor="on"]) .max-w-blog {
+  max-width: min(92vw, 100rem);
+}
+
+html[data-wallpaper-mode="on"] .wallpaper-controls {
+  display: flex;
+  position: fixed;
+  right: 1.5rem;
+  bottom: 5rem;
+  z-index: 1000;
+  align-items: center;
+  gap: .4rem;
+  padding: .5rem;
+  border: 1px solid oklch(var(--bc) / .15);
+  border-radius: 1rem;
+  background: oklch(var(--b1) / .95);
+  color: oklch(var(--bc));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .22);
+}
+
+html[data-wallpaper-mode="on"] .wallpaper-controls :is(a, button) {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  place-items: center;
+  border-radius: .7rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+html[data-wallpaper-mode="on"] .wallpaper-controls :is(a, button):is(:hover, :focus-visible) {
+  background: oklch(var(--p) / .2);
+  outline: 2px solid oklch(var(--p));
+}
+
+html[data-wallpaper-mode="on"][data-wallpaper-editor="on"] .wallpaper-editor-warning {
+  display: block;
+  position: fixed;
+  bottom: 5rem;
+  left: 1rem;
+  z-index: 1000;
+  max-width: min(32rem, 55vw);
+  padding: .8rem 1rem;
+  border-radius: .8rem;
+  background: oklch(var(--b1) / .95);
+  color: oklch(var(--bc));
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .22);
+}
+
+@media (max-width: 640px) {
+  html[data-wallpaper-mode="on"] .wallpaper-controls { right: .5rem; bottom: 4rem; }
+  html[data-wallpaper-mode="on"] .wallpaper-controls :is(a, button) { width: 2.5rem; height: 2.5rem; }
+}
