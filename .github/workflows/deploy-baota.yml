@@ -1,0 +1,115 @@
+name: Deploy RyuChan to Baota
+
+on:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [content-update]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: baota-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name != 'repository_dispatch' || github.event.client_payload.branch == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CONTENT_REPO: ${{ github.workspace }}/ryuchan-content
+      PUBLIC_GITHUB_OWNER: ${{ github.repository_owner }}
+      PUBLIC_GITHUB_REPO: RyuChan-Content
+      PUBLIC_GITHUB_BRANCH: main
+      PUBLIC_GITHUB_APP_ID: ${{ vars.PUBLIC_GITHUB_APP_ID }}
+      PUBLIC_GITHUB_ENCRYPT_KEY: ${{ vars.PUBLIC_GITHUB_ENCRYPT_KEY }}
+      PUBLIC_FRONTEND_REPO: ${{ github.event.repository.name }}
+    steps:
+      - name: Validate production settings
+        env:
+          CONTENT_TOKEN: ${{ secrets.CONTENT_TOKEN }}
+          DEPLOY_KEY: ${{ secrets.BAOTA_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.BAOTA_KNOWN_HOSTS }}
+          BAOTA_HOST: ${{ vars.BAOTA_HOST }}
+          BAOTA_PORT: ${{ vars.BAOTA_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CONTENT_TOKEN DEPLOY_KEY KNOWN_HOSTS BAOTA_HOST BAOTA_PORT PUBLIC_GITHUB_APP_ID PUBLIC_GITHUB_ENCRYPT_KEY; do
+            if [[ -z "${!key:-}" ]]; then echo "Missing required setting: $key" >&2; exit 1; fi
+          done
+          [[ "$BAOTA_HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo 'Invalid BAOTA_HOST' >&2; exit 1; }
+          [[ "$BAOTA_PORT" =~ ^[0-9]{1,5}$ ]] && (( 10#$BAOTA_PORT > 0 && 10#$BAOTA_PORT <= 65535 )) || { echo 'Invalid BAOTA_PORT' >&2; exit 1; }
+
+      - name: Checkout frontend (includes URL encoding fix)
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check publisher and setup script
+        run: |
+          bash -n scripts/setup-baota-deploy.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 scripts/test_baota_publish.py
+
+      - name: Checkout private content repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/RyuChan-Content
+          ref: main
+          token: ${{ secrets.CONTENT_TOKEN }}
+          persist-credentials: false
+          path: ryuchan-content
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install and build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          test -s dist/index.html
+          test -s dist/config/index.html
+          grep -q 'encodeGitHubPath' src/lib/github-client.ts || { echo 'Frontend URL fix has not been committed' >&2; exit 1; }
+
+      - name: Package static site
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/ryuchan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+          tar -C dist -czf "$archive" .
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$(sha256sum "$archive" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish via pinned SSH host key
+        env:
+          DEPLOY_KEY: ${{ secrets.BAOTA_DEPLOY_KEY }}
+          KNOWN_HOSTS: ${{ secrets.BAOTA_KNOWN_HOSTS }}
+          BAOTA_HOST: ${{ vars.BAOTA_HOST }}
+          BAOTA_PORT: ${{ vars.BAOTA_PORT }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' > "$HOME/.ssh/ryuchan-deploy"
+          printf '%s\n' "$KNOWN_HOSTS" | tr -d '\r' > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/ryuchan-deploy" "$HOME/.ssh/known_hosts"
+          ssh-keygen -y -f "$HOME/.ssh/ryuchan-deploy" >/dev/null
+          ssh-keygen -lf "$HOME/.ssh/known_hosts" >/dev/null
+          remote_archive="/home/ryuchan-deploy/incoming/ryuchan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+          ssh_options=(-i "$HOME/.ssh/ryuchan-deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15)
+          scp "${ssh_options[@]}" -P "$BAOTA_PORT" "$ARCHIVE" "ryuchan-deploy@$BAOTA_HOST:$remote_archive"
+          ssh "${ssh_options[@]}" -p "$BAOTA_PORT" "ryuchan-deploy@$BAOTA_HOST" "sudo -n /usr/local/sbin/ryuchan-publish $remote_archive $SHA256"

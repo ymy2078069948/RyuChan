@@ -6,6 +6,11 @@ import { toast } from 'sonner'
 
 export const GH_API = 'https://api.github.com'
 
+// Encode each path segment without encoding the slashes required by GitHub REST routes.
+function encodeGitHubPath(path: string): string {
+	return path.split('/').map(encodeURIComponent).join('/')
+}
+
 function handle401Error(): void {
 	if (typeof sessionStorage === 'undefined') return
 	try {
@@ -63,7 +68,7 @@ export async function createInstallationToken(jwt: string, installationId: numbe
 }
 
 export async function getFileSha(token: string, owner: string, repo: string, path: string, branch: string): Promise<string | undefined> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(branch)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(branch)}`, {
 		headers: {
 			Authorization: `Bearer ${token}`,
 			Accept: 'application/vnd.github+json',
@@ -80,7 +85,7 @@ export async function getFileSha(token: string, owner: string, repo: string, pat
 
 export async function putFile(token: string, owner: string, repo: string, path: string, contentBase64: string, message: string, branch: string) {
 	const sha = await getFileSha(token, owner, repo, path, branch)
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeGitHubPath(path)}`, {
 		method: 'PUT',
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -97,7 +102,7 @@ export async function putFile(token: string, owner: string, repo: string, path: 
 }
 
 export async function getRef(token: string, owner: string, repo: string, ref: string): Promise<{ sha: string }> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/ref/${encodeURIComponent(ref)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/ref/${encodeGitHubPath(ref)}`, {
 		headers: {
 			Authorization: `Bearer ${token}`,
 			Accept: 'application/vnd.github+json',
@@ -171,7 +176,7 @@ export async function createCommit(token: string, owner: string, repo: string, m
 }
 
 export async function updateRef(token: string, owner: string, repo: string, ref: string, sha: string, force = false): Promise<void> {
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/refs/${encodeURIComponent(ref)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/git/refs/${encodeGitHubPath(ref)}`, {
 		method: 'PATCH',
 		headers: {
 			Authorization: `Bearer ${token}`,
@@ -195,7 +200,7 @@ export async function readTextFileFromRepo(token: string | null | undefined, own
 		headers.Authorization = `Bearer ${token}`
 	}
 
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}&t=${Date.now()}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(ref)}&t=${Date.now()}`, {
 		headers,
 		cache: 'no-store'
 	})
@@ -222,7 +227,7 @@ export async function listRepoFilesRecursive(token: string | null | undefined, o
 			headers.Authorization = `Bearer ${token}`
 		}
 
-		const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(targetPath)}?ref=${encodeURIComponent(ref)}&t=${Date.now()}`, {
+		const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeGitHubPath(targetPath)}?ref=${encodeURIComponent(ref)}&t=${Date.now()}`, {
 			headers,
 			cache: 'no-store'
 		})
@@ -260,7 +265,7 @@ export async function listRepoDir(token: string | null | undefined, owner: strin
 		headers.Authorization = `Bearer ${token}`
 	}
 
-	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`, {
+	const res = await fetch(`${GH_API}/repos/${owner}/${repo}/contents/${encodeGitHubPath(path)}?ref=${encodeURIComponent(ref)}`, {
 		headers
 	})
 	if (res.status === 401) handle401Error()
