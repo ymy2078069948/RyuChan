@@ -10,7 +10,7 @@ import { USER_AVATAR } from "@/config";
 const aboutEntries = await getCollection('about');
 const aboutEntry = aboutEntries[0];
 const { Content } = aboutEntry ? await aboutEntry.render() : { Content: null };
-const cfg = aboutConfig.default || aboutConfig;
+const cfg = aboutConfig;
 ---
 
 <BaseLayout title={cfg.page?.title || "About"} isIndexed={false}>
@@ -31,12 +31,12 @@ const cfg = aboutConfig.default || aboutConfig;
           <div
             class="w-32 h-32 md:w-40 md:h-40 rounded-xl ring ring-primary ring-offset-base-100 ring-offset-2 overflow-hidden"
           >
-            <img src={USER_AVATAR || aboutEntry?.data?.avatar || cfg.avatar || "/profile.png"} alt={aboutEntry?.data?.displayName || cfg.name} width="160" height="160" loading="eager" />
+            <img data-runtime-image="user.avatar" src={USER_AVATAR || cfg.avatar || "/profile.png"} alt={cfg.displayName || cfg.name} width="160" height="160" loading="eager" />
           </div>
         </div>
 
         <div class="flex-1 text-center md:text-left">
-          <h1 class="text-3xl md:text-4xl font-bold mb-2">{aboutEntry?.data?.title || cfg.displayName || cfg.name}</h1>
+          <h1 class="text-3xl md:text-4xl font-bold mb-2" data-runtime-text="user.name">{aboutEntry?.data?.title || cfg.displayName || cfg.name}</h1>
           <p class="text-xl text-base-content/80 mb-4">{cfg.title}</p>
 
           <div class="flex flex-wrap gap-3 justify-center md:justify-start mb-6">

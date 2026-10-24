@@ -39,7 +39,7 @@ const typedMenu = SITE_MENU as MenuItem[];
       <div class="flex items-center justify-between">      
 
         <!-- 品牌标识 - 支持图片或文本 -->        
-        <a href="/" class="flex items-center hover:scale-105 transition-transform duration-300 h-14 md:h-[72px]">
+        <a href="/" class="flex items-center hover:scale-105 transition-transform duration-300 h-14 md:h-[72px]" data-runtime-brand>
           {SITE_TITLE_TYPE === 'image' && SITE_TITLE_IMAGE ? (
             <div class="flex items-center justify-center mr-3 p-1 md:p-2 rounded-md bg-base-100/0" style="min-width:48px">
               <img src={SITE_TITLE_IMAGE} alt={SITE_TITLE} class="h-12 md:h-14 w-auto object-contain my-0 flex-shrink-0" />
@@ -109,7 +109,7 @@ const typedMenu = SITE_MENU as MenuItem[];
     <div class="flex items-center justify-between px-4 py-3 bg-base-100/80 backdrop-blur-xl rounded-full shadow-2xl border border-white/20 w-full">
       <!-- 移动端头像 - 点击跳到首页 -->
       <a href="/" class="relative w-10 h-10 rounded-full overflow-hidden border-2 border-primary flex-shrink-0 hover:scale-110 transition-transform duration-300">
-        <img src={USER_AVATAR} alt="profile" class="w-full h-full object-cover" />
+        <img data-runtime-image="user.avatar" src={USER_AVATAR} alt="profile" class="w-full h-full object-cover" />
       </a>
       
       {typedMenu.map((item) => {

@@ -47,7 +47,7 @@ tagEntries.sort((a, b) => b[1] - a[1]); // 按使用频率排序
       <div class="transition absolute inset-0 dark:bg-black/10 bg-opacity-50 pointer-events-none"></div>  
         
       <!-- 头像图片 -->  
-      <Image  
+      <Image data-runtime-image="user.avatar"
         src={USER_AVATAR}  
         alt="Profile Image of the Author"  
         class="w-full h-full object-cover image-content opacity-0 transition-opacity duration-500"  
@@ -65,7 +65,7 @@ tagEntries.sort((a, b) => b[1] - a[1]); // 按使用频率排序
   <div class="px-2">  
     <!-- 用户名 -->  
     <div class="font-bold text-xl text-center mb-1 dark:text-neutral-50 transition">  
-      {USER_NAME}  
+      <span data-runtime-text="user.name">{USER_NAME}</span>
     </div>  
       
     <!-- 装饰线条 -->  
@@ -77,7 +77,7 @@ tagEntries.sort((a, b) => b[1] - a[1]); // 按使用频率排序
     </div>   -->
     <!-- 个人描述 -->       
     <div class="text-center mb-2.5 transition font-bold tracking-wide bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent hover:scale-105 hover:from-purple-400 hover:to-pink-400">      
-     {USER_DESCRIPTION}    
+     <span data-runtime-text="user.description">{USER_DESCRIPTION}</span>
     </div>
       
     <!-- 社交图标 - 恢复原始样式 -->  

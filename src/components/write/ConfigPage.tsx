@@ -559,6 +559,55 @@ export function ConfigPage() {
     }
     // --- End Playlist CRUD ---
 
+    const publishRuntime = async (config: any, commit: string): Promise<void> => {
+        const status = await fetch('/__runtime/config', { cache: 'no-store' })
+        if (!status.ok) throw new Error('服务器尚未安装运行时配置接口')
+        const service = await status.json()
+        if (service.version !== 1) throw new Error('运行时接口版本不匹配')
+
+        const tokenKey = 'ryuchan_runtime_publish_token'
+        let publishToken = sessionStorage.getItem(tokenKey)
+        if (!publishToken) {
+            publishToken = window.prompt('输入宝塔运行时发布密钥（与 GitHub 私钥不同；仅保存在本次浏览器会话）：')
+            if (!publishToken) throw new Error('未提供运行时发布密钥')
+            sessionStorage.setItem(tokenKey, publishToken)
+        }
+        const images: Record<string, string> = {}
+        for (const [target, { file }] of Object.entries(pendingImages)) {
+            images[target] = await fileToBase64NoPrefix(file)
+        }
+        const payload = {
+            commit,
+            config: {
+                site: {
+                    tab: config.site?.tab, title: config.site?.title,
+                    description: config.site?.description,
+                    title_type: config.site?.title_type || config.site?.titleType,
+                    favicon: config.site?.favicon,
+                },
+                user: {
+                    name: config.user?.name, description: config.user?.description,
+                    site: config.user?.site, avatar: config.user?.avatar,
+                    title_image: config.user?.title_image,
+                    qr_wechat: config.user?.qr_wechat, qr_alipay: config.user?.qr_alipay,
+                },
+            },
+            images,
+        }
+        const response = await fetch('/__runtime/publish', {
+            method: 'POST',
+            cache: 'no-store',
+            headers: { 'Content-Type': 'application/json', 'X-Runtime-Token': publishToken },
+            body: JSON.stringify(payload),
+        })
+        if (response.status === 403) sessionStorage.removeItem(tokenKey)
+        if (!response.ok) {
+            const details = await response.json().catch(() => null)
+            throw new Error(details?.error || `运行时发布失败（HTTP ${response.status}）`)
+        }
+        window.dispatchEvent(new Event('ryuchan:runtime-config-updated'))
+    }
+
     const handleSave = async () => {
         if (!window.confirm('确定保存配置吗？这将直接推送到 GitHub 仓库。')) {
             return
@@ -713,7 +762,17 @@ export function ConfigPage() {
             toast.loading('🔄 正在同步远程分支...', { id: toastId })
             await updateRef(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, refName, newCommitSha)
 
-            // Only clear pending uploads after the commit is actually on the branch.
+            // GitHub is the durable source. Publish the visitor-facing overlay
+            // separately; report a partial result when the optional server is offline.
+            let runtimeError: string | null = null
+            try {
+                toast.loading('正在实时同步网站访客可见的配置...', { id: toastId })
+                await publishRuntime(configToSave, newCommitSha)
+            } catch (error) {
+                runtimeError = error instanceof Error ? error.message : String(error)
+                console.error('Realtime publish failed after GitHub save:', error)
+            }
+
             for (const { previewUrl } of Object.values(pendingImages)) URL.revokeObjectURL(previewUrl)
             setPendingImages({})
             setParsedConfig(configToSave)
@@ -722,10 +781,18 @@ export function ConfigPage() {
             setMusicDataDirty(false)
             setLastFetchedContent(savedConfigContent)
 
-            toast.success('🎉 配置更新成功！', {
-                id: toastId,
-                description: '已保存到内容仓；网站显示新内容还需等待宝塔下一次部署完成。'
-            })
+            if (runtimeError) {
+                toast.warning('内容仓已保存，但网站未能实时更新', {
+                    id: toastId,
+                    description: `${runtimeError}；网站仍会在宝塔完成部署后更新。`,
+                    duration: 12000,
+                })
+            } else {
+                toast.success('配置已保存并实时更新个人资料和品牌信息', {
+                    id: toastId,
+                    description: '文章、布局及其他构建时设置仍需等待宝塔部署。',
+                })
+            }
         } catch (error: any) {
             console.error(error)
             toast.error('❌ 保存配置失败', {

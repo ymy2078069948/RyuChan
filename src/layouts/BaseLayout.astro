@@ -133,6 +133,7 @@ const bannerSubtitle = pageConfig?.subtitle || "";
 
   <!-- 移除上边距，让Banner从顶部开始 -->
   <body
+    data-runtime-page-title={title}
     class="flex flex-col min-h-screen bg-[var(--banner-wave-bg)]"
     {...isIndexed ? { "data-pagefind-body": true } : {}}
   >
@@ -164,6 +165,8 @@ const bannerSubtitle = pageConfig?.subtitle || "";
 
     <MobileTOC headings={headings} showTOC={showTOC} />
     <GlobalAudio />
+
+    <script src="/js/runtime-config.js" defer is:inline></script>
 
     <!-- 其余脚本保持不变 -->
     <script define:vars={{ SITE_THEME }} is:inline>

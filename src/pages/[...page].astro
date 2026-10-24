@@ -31,7 +31,7 @@ const pageLinks = generatePageLinks(totalPages);
       <a href="/about" class="relative h-36 w-36 shrink-0 md:hidden">
         <img
           class="absolute left-0 top-0 h-36 rounded-l-3xl object-cover"
-          src={USER_AVATAR}
+          data-runtime-image="user.avatar" src={USER_AVATAR}
           alt="Avatar"
           loading="eager"
         />
@@ -40,7 +40,7 @@ const pageLinks = generatePageLinks(totalPages);
       <a href="/about" class="mx-auto hidden h-36 w-36 cursor-pointer rounded-3xl transition-all hover:brightness-75 md:block">
         <img
           class="h-36 w-36 rounded-3xl object-cover"
-          src={USER_AVATAR}
+          data-runtime-image="user.avatar" src={USER_AVATAR}
           alt="Avatar"
           loading="lazy"
         />
@@ -48,10 +48,10 @@ const pageLinks = generatePageLinks(totalPages);
       <div class="flex grow flex-col justify-center space-y-3 p-4">
         <div class="flex flex-col items-center">
           <a href="/about" class="line-clamp-1 text-xl font-semibold text-base-content">
-            {USER_NAME}
+            <span data-runtime-text="user.name">{USER_NAME}</span>
           </a>
           <span class="mb-2 mt-1 h-1 w-8 rounded-full bg-primary"></span>
-          <p class="line-clamp-1 text-base-content/60 text-sm font-semibold">{USER_DESCRIPTION}</p>
+          <p class="line-clamp-1 text-base-content/60 text-sm font-semibold"><span data-runtime-text="user.description">{USER_DESCRIPTION}</span></p>
         </div>
         <ul class="flex flex-row items-center justify-center space-x-5">
           {USER_SIDEBAR_SOCIAL_ICONS.map((icon) => (
