@@ -52,6 +52,7 @@ export interface HeaderProps {
 // ===== Widget Components =====
 export interface ThemeToggleProps {
   className?: string;
+  id?: string;
 }
 
 export interface PaginationProps {
