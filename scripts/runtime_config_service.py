@@ -16,7 +16,7 @@ import tempfile
 from urllib.parse import urlsplit
 
 DATA_DIR = Path(os.environ.get('RYUCHAN_RUNTIME_DIR', '/var/lib/ryuchan-runtime'))
-ADMIN_TOKEN = os.environ.get('RYUCHAN_RUNTIME_TOKEN', '')
+TOKEN_FILE = Path(os.environ.get('RYUCHAN_RUNTIME_TOKEN_FILE', '/etc/ryuchan-runtime.token'))
 ORIGIN = os.environ.get('RYUCHAN_RUNTIME_ORIGIN', 'https://luokk.top')
 SITE_SHA = Path(os.environ.get('RYUCHAN_RUNTIME_SITE_SHA', '/www/wwwroot/luokk.top/.ryuchan-content-sha'))
 MAX_BODY = 12 * 1024 * 1024
@@ -105,6 +105,13 @@ def deployed_sha():
         return ''
 
 
+def read_admin_token():
+    try:
+        return TOKEN_FILE.read_text(encoding='ascii').strip()
+    except (OSError, UnicodeError):
+        return ''
+
+
 def application(environ, start_response):
     method = environ.get('REQUEST_METHOD')
     path = environ.get('PATH_INFO', '')
@@ -131,7 +138,8 @@ def application(environ, start_response):
     if method != 'POST' or path != '/__runtime/publish':
         return respond(start_response, '404 Not Found', {'error': 'Not found'})
     token = environ.get('HTTP_X_RUNTIME_TOKEN', '')
-    if not ADMIN_TOKEN or len(ADMIN_TOKEN) < 32 or not hmac.compare_digest(token, ADMIN_TOKEN):
+    admin_token = read_admin_token()
+    if not admin_token or len(admin_token) < 32 or not hmac.compare_digest(token, admin_token):
         return respond(start_response, '403 Forbidden', {'error': 'Forbidden'})
     if environ.get('HTTP_ORIGIN') != ORIGIN or environ.get('CONTENT_TYPE', '').split(';')[0] != 'application/json':
         return respond(start_response, '403 Forbidden', {'error': 'Origin or type rejected'})

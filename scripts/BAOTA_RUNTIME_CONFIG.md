@@ -4,7 +4,7 @@
 
 ## 工作原理
 
-`/config/` 原有 GitHub App 凭证仍用于写入私有内容仓；只有成功更新内容仓分支后，编辑器才使用**独立的运行时发布密钥**调用同源 `/__runtime/publish`。独立服务只监听 `127.0.0.1:8765`，只接收白名单字段、哈希匹配的图片和特定 MIME 格式；访客只读 `/__runtime/config` 和 `/__runtime/media/*`。JS 增强已有静态 HTML，服务停止时网页回退为静态内容。密钥只存用户当前浏览器的 sessionStorage，绝不写在前端构建产物、GitHub Secrets 或本仓库内。
+`/config/` 原有 GitHub App 凭证仍用于写入私有内容仓；只有成功更新内容仓分支后，编辑器才使用**独立的运行时发布密钥**调用同源 `/__runtime/publish`。独立服务只监听 `127.0.0.1:8765`，只接收白名单字段、哈希匹配的图片和特定 MIME 格式；访客只读 `/__runtime/config` 和 `/__runtime/media/*`。JS 增强已有静态 HTML，服务停止时网页回退为静态内容。密钥只存用户当前浏览器的 sessionStorage，绝不写在前端构建产物、GitHub Secrets 或本仓库内；服务端发布密钥以 root:ryuchan-runtime 0640 独立文件保存，不通过 systemd 环境变量传递。
 
 GitHub 保存成功但实时发布失败时，后台**明确提示部分成功**；原有宝塔构建部署仍保底。当宝塔下一次发布更新 `.ryuchan-content-sha` 时，服务停止返回旧叠加层，防止它无限期盖住内容仓的最新值。重新发布（服务重启）不会丢失当前叠加层或图片。
 
@@ -24,12 +24,16 @@ python3 -m venv /opt/ryuchan-runtime/venv
 python3 - <<'PY'
 from pathlib import Path
 import secrets
-path = Path('/etc/ryuchan-runtime.env')
+path = Path('/etc/ryuchan-runtime.token')
 if path.exists():
     raise SystemExit('Existing token file: preserve it; do not rotate without updating the browser key')
-path.write_text('RYUCHAN_RUNTIME_TOKEN=' + secrets.token_urlsafe(48) + '\nRYUCHAN_RUNTIME_ORIGIN=https://luokk.top\n')
-path.chmod(0o600)
-print('Created /etc/ryuchan-runtime.env; do NOT paste its contents into chat.')
+import os
+import grp
+fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o640)
+os.fchown(fd, 0, grp.getgrnam('ryuchan-runtime').gr_gid)
+with os.fdopen(fd, 'w') as stream:
+    stream.write(secrets.token_urlsafe(48) + '\n')
+print('Created /etc/ryuchan-runtime.token; do NOT paste its contents into chat.')
 PY
 ```
 
@@ -45,7 +49,6 @@ Type=simple
 User=ryuchan-runtime
 Group=ryuchan-runtime
 WorkingDirectory=/opt/ryuchan-runtime
-EnvironmentFile=/etc/ryuchan-runtime.env
 ExecStart=/opt/ryuchan-runtime/venv/bin/gunicorn --workers 1 --threads 2 --bind 127.0.0.1:8765 --access-logfile - runtime_config_service:application
 Restart=on-failure
 RestartSec=3
@@ -81,7 +84,7 @@ systemctl status --no-pager ryuchan-runtime.service
 curl -fsS https://luokk.top/__runtime/config
 ```
 
-公开 GET 应为 `{"version":1,"config":null}`，这是正常的（尚未保存实时值）。不要把 token 发到聊天或公开 issue；管理员自己在服务器读取 `RYUCHAN_RUNTIME_TOKEN`，登录配置页保存时在浏览器的密钥对话框输入一次。注意：**GitHub App 私钥不是运行时发布密钥**。
+公开 GET 应为 `{"version":1,"config":null}`，这是正常的（尚未保存实时值）。不要把 token 发到聊天或公开 issue；管理员自己在服务器读取 `/etc/ryuchan-runtime.token`，登录配置页保存时在浏览器的密钥对话框输入一次。注意：**GitHub App 私钥不是运行时发布密钥**。
 
 ## 验证边界
 

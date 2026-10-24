@@ -19,7 +19,9 @@ class RuntimeServiceTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         service.DATA_DIR = Path(self.temp.name)
         service.SITE_SHA = Path(self.temp.name) / 'site-sha'
-        service.ADMIN_TOKEN = 'test-secret-' + 'x' * 40
+        self.token = 'test-secret-' + 'x' * 40
+        service.TOKEN_FILE = Path(self.temp.name) / 'runtime.token'
+        service.TOKEN_FILE.write_text(self.token)
         service.ORIGIN = 'https://luokk.top'
 
     def request(self, method, path, payload=None, token=None, origin='https://luokk.top'):
@@ -49,9 +51,9 @@ class RuntimeServiceTests(unittest.TestCase):
     def test_public_config_and_authorized_publish(self):
         self.assertEqual(json.loads(self.request('GET', '/__runtime/config')['body'])['config'], None)
         self.assertEqual(self.request('POST', '/__runtime/publish', self.payload())['code'], '403 Forbidden')
-        self.assertEqual(self.request('POST', '/__runtime/publish', self.payload(), service.ADMIN_TOKEN,
+        self.assertEqual(self.request('POST', '/__runtime/publish', self.payload(), self.token,
                                       'https://evil.example')['code'], '403 Forbidden')
-        posted = self.request('POST', '/__runtime/publish', self.payload(True), service.ADMIN_TOKEN)
+        posted = self.request('POST', '/__runtime/publish', self.payload(True), self.token)
         self.assertEqual(posted['code'], '200 OK')
         live = json.loads(self.request('GET', '/__runtime/config')['body'])
         self.assertEqual(live['config']['user']['name'], 'Alice')
@@ -63,34 +65,34 @@ class RuntimeServiceTests(unittest.TestCase):
 
     def test_new_build_supersedes_stale_overlay(self):
         service.SITE_SHA.write_text('b' * 40)
-        self.assertEqual(self.request('POST', '/__runtime/publish', self.payload(), service.ADMIN_TOKEN)['code'], '200 OK')
+        self.assertEqual(self.request('POST', '/__runtime/publish', self.payload(), self.token)['code'], '200 OK')
         self.assertEqual(json.loads(self.request('GET', '/__runtime/config')['body'])['config']['user']['name'], 'Alice')
         service.SITE_SHA.write_text('a' * 40)
         self.assertIsNone(json.loads(self.request('GET', '/__runtime/config')['body'])['config'])
 
     def test_other_saves_preserve_uploaded_media_url_until_build(self):
-        self.assertEqual(self.request('POST', '/__runtime/publish', self.payload(True), service.ADMIN_TOKEN)['code'], '200 OK')
+        self.assertEqual(self.request('POST', '/__runtime/publish', self.payload(True), self.token)['code'], '200 OK')
         next_save = self.payload(True)
         next_save['images'] = {}
-        self.assertEqual(self.request('POST', '/__runtime/publish', next_save, service.ADMIN_TOKEN)['code'], '200 OK')
+        self.assertEqual(self.request('POST', '/__runtime/publish', next_save, self.token)['code'], '200 OK')
         self.assertTrue(json.loads(self.request('GET', '/__runtime/config')['body'])['config']['user']['avatar'].startswith('/__runtime/media/'))
 
     def test_bad_image_cannot_change_live_config(self):
-        ok = self.request('POST', '/__runtime/publish', self.payload(), service.ADMIN_TOKEN)
+        ok = self.request('POST', '/__runtime/publish', self.payload(), self.token)
         self.assertEqual(ok['code'], '200 OK')
         forged = self.payload(True)
         forged['images']['user.avatar'] = base64.b64encode(b'not a jpeg').decode()
-        self.assertEqual(self.request('POST', '/__runtime/publish', forged, service.ADMIN_TOKEN)['code'], '400 Bad Request')
+        self.assertEqual(self.request('POST', '/__runtime/publish', forged, self.token)['code'], '400 Bad Request')
         self.assertEqual(json.loads(self.request('GET', '/__runtime/config')['body'])['config']['user']['avatar'], '/profile.png')
         self.assertEqual(self.request('GET', '/__runtime/media/../config.json')['code'], '404 Not Found')
 
     def test_untrusted_markup_and_javascript_urls_rejected(self):
         payload = self.payload()
         payload['config']['user']['avatar'] = 'javascript:alert(1)'
-        self.assertEqual(self.request('POST', '/__runtime/publish', payload, service.ADMIN_TOKEN)['code'], '400 Bad Request')
+        self.assertEqual(self.request('POST', '/__runtime/publish', payload, self.token)['code'], '400 Bad Request')
         payload['config']['user']['avatar'] = '/profile.png'
         payload['config']['site']['title_type'] = '<script>'
-        self.assertEqual(self.request('POST', '/__runtime/publish', payload, service.ADMIN_TOKEN)['code'], '400 Bad Request')
+        self.assertEqual(self.request('POST', '/__runtime/publish', payload, self.token)['code'], '400 Bad Request')
 
 
 if __name__ == '__main__':
