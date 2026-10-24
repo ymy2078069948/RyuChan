@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuthStore } from '@/components/write/hooks/use-auth'
+import { GITHUB_CONFIG } from '@/consts'
 import { KJUR, KEYUTIL } from 'jsrsasign'
 import { toast } from 'sonner'
 
@@ -189,6 +190,12 @@ export async function updateRef(token: string, owner: string, repo: string, ref:
 	if (res.status === 401) handle401Error()
 	if (res.status === 422) handle422Error()
 	if (!res.ok) throw new Error(`update ref failed: ${res.status}`)
+	if (repo === GITHUB_CONFIG.REPO) {
+		// 内容仓提交不会触发前端仓的部署工作流，这里主动通知一次（失败不影响保存）。
+		void import('./deploy-trigger')
+			.then(({ triggerContentDeploy }) => triggerContentDeploy())
+			.catch((error) => console.warn('[deploy-trigger] 加载失败', error))
+	}
 }
 
 export async function readTextFileFromRepo(token: string | null | undefined, owner: string, repo: string, path: string, ref: string): Promise<string | null> {

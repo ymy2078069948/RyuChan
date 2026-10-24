@@ -49,3 +49,17 @@ ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 先在前端仓库 Actions 手动运行一次 `Deploy RyuChan to Baota`，必须同时通过 build、上传、发布步骤；确认浏览器刷新 `/config/` 后展示新值。之后在内容仓改一个已知的非敏感字段并验证下一次定时任务会部署新 SHA；如配置了 `DISPATCH_TOKEN`，验证 `content-update` 派发会提前触发。工作流使用 `concurrency` 串行排队。
 
 发布器输出完整站点备份 tar.gz 路径；构建失败不接触线上站点，发布途中失败时保留备份供人工恢复。不要单凭保存成功 Toast 或 `pnpm build` 结果推断线上已更新。
+
+## 增量发布与在线编辑触发
+
+- 构建产物会附带 `.ryuchan-manifest`（全站文件 SHA-256 清单）。工作流先读取线上清单，只把有变化的文件打包上传；服务器端按清单覆盖变化文件、删除清单外的旧文件（保留 `.user.ini`、`.htaccess`、`.well-known/` 等面板/证书文件）。单个文章的改动通常只上传几百 KB，发布约 2~3 分钟；删除文章后旧链接也会返回 404。
+- 服务器把发布器换成支持清单的新版本（root 执行一次即可）：
+  ```bash
+  curl -fsSL -o /tmp/ryuchan-publish.new https://raw.githubusercontent.com/ymy2078069948/RyuChan/main/scripts/baota-publish.py
+  install -o root -g root -m 0755 /tmp/ryuchan-publish.new /usr/local/sbin/ryuchan-publish
+  rm -f /tmp/ryuchan-publish.new
+  ```
+  未升级时工作流检测不到新发布器，会自动回退为整包发布（旧行为），不会中断部署。若服务器拉不到 GitHub 文件，用宝塔文件管理把仓库里的 `scripts/baota-publish.py` 上传到 `/root/baota-publish.py`，再执行 `install -o root -g root -m 0755 /root/baota-publish.py /usr/local/sbin/ryuchan-publish`。
+- 在线编辑（`/write`、`/config` 等）保存并成功提交内容仓后，浏览器用已有的 GitHub App 安装令牌向前端仓库发送 `repository_dispatch`（`content-update`），立即触发部署，不再依赖定时任务。前提：同一个 GitHub App 也安装到了前端仓库（需要 Contents 写权限），且 `PUBLIC_FRONTEND_REPO` 指向前端仓库名。
+- 前端工作流的 15 分钟定时检查保留为兜底；fork 仓库的 GitHub 定时任务默认不启用，不能当作唯一触发方式。
+

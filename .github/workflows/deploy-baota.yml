@@ -129,19 +129,70 @@ jobs:
         if: steps.freshness.outputs.deploy == 'true'
         run: printf '%s\n' '${{ steps.freshness.outputs.content_sha }}' > dist/.ryuchan-content-sha
 
+      - name: Detect manifest-capable publisher
+        if: steps.freshness.outputs.deploy == 'true'
+        id: manifest
+        env:
+          BAOTA_HOST: ${{ vars.BAOTA_HOST }}
+          BAOTA_PORT: ${{ vars.BAOTA_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh_options=(-i "$HOME/.ssh/ryuchan-deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15)
+          if ssh "${ssh_options[@]}" -p "$BAOTA_PORT" "ryuchan-deploy@$BAOTA_HOST" 'grep -q ".ryuchan-manifest" /usr/local/sbin/ryuchan-publish 2>/dev/null'; then
+            echo 'supported=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'supported=false' >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Package static site
         if: steps.freshness.outputs.deploy == 'true'
         id: package
+        env:
+          BAOTA_HOST: ${{ vars.BAOTA_HOST }}
+          BAOTA_PORT: ${{ vars.BAOTA_PORT }}
         shell: bash
         run: |
           set -euo pipefail
           archive="$RUNNER_TEMP/ryuchan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
-          tar -C dist -czf "$archive" .
-          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
-          printf 'sha256=%s\n' "$(sha256sum "$archive" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          manifest="$RUNNER_TEMP/ryuchan-manifest.txt"
+          ( cd dist && find . -type f -not -name '.user.ini' -print0 | sort -z | xargs -0 sha256sum ) > "$manifest"
+          publish=false
+          if [[ "${{ steps.manifest.outputs.supported }}" == 'true' ]]; then
+            ssh_options=(-i "$HOME/.ssh/ryuchan-deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15)
+            if live=$(ssh "${ssh_options[@]}" -p "$BAOTA_PORT" "ryuchan-deploy@$BAOTA_HOST" 'cd /www/wwwroot/luokk.top && find . -type f -not -name .user.ini -not -name .htaccess -print0 | sort -z | xargs -0 sha256sum' 2>/dev/null); then
+              printf '%s\n' "$live" > "$RUNNER_TEMP/ryuchan-live.txt"
+              awk 'NR==FNR { live[substr($0,67)]=substr($0,1,64); next } { path=substr($0,67); if (!(path in live) || live[path]!=substr($0,1,64)) print path }' "$RUNNER_TEMP/ryuchan-live.txt" "$manifest" > "$RUNNER_TEMP/ryuchan-changed.txt"
+              if [[ -s "$RUNNER_TEMP/ryuchan-changed.txt" ]]; then
+                cp "$manifest" dist/.ryuchan-manifest
+                printf '%s\n' './.ryuchan-manifest' >> "$RUNNER_TEMP/ryuchan-changed.txt"
+                tar -C dist -czf "$archive" -T "$RUNNER_TEMP/ryuchan-changed.txt"
+                rm -f dist/.ryuchan-manifest
+                echo "Incremental bundle: $(wc -c < "$archive") bytes, $(wc -l < "$RUNNER_TEMP/ryuchan-changed.txt") entries" >&2
+                publish=true
+              else
+                echo 'Built site already matches the live site; nothing to publish.' >&2
+              fi
+            else
+              echo 'Live manifest unavailable; falling back to a full bundle.' >&2
+              tar -C dist -czf "$archive" .
+              publish=true
+            fi
+          else
+            echo 'Publisher without manifest support; sending a full bundle.' >&2
+            tar -C dist -czf "$archive" .
+            publish=true
+          fi
+          if [[ "$publish" == 'true' ]]; then
+            printf 'publish=true\n' >> "$GITHUB_OUTPUT"
+            printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+            printf 'sha256=%s\n' "$(sha256sum "$archive" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            printf 'publish=false\n' >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Publish via pinned SSH host key
-        if: steps.freshness.outputs.deploy == 'true'
+        if: steps.freshness.outputs.deploy == 'true' && steps.package.outputs.publish == 'true'
         env:
           BAOTA_HOST: ${{ vars.BAOTA_HOST }}
           BAOTA_PORT: ${{ vars.BAOTA_PORT }}

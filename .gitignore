@@ -61,3 +61,6 @@ public/favicon.ico
 public/Alipay.jpg
 public/WeChat.jpg
 public/home.webp
+
+# python cache
+__pycache__/
