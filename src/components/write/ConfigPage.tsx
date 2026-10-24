@@ -4,6 +4,7 @@ import { getAuthToken } from '@/lib/auth'
 import { GITHUB_CONFIG } from '@/consts'
 import { CONTENT_PATHS } from '@/lib/content-paths'
 import { synthesizeConfig, buildConfigTreeItems } from '@/lib/config-synthesis'
+import { mergeConfigChanges } from '@/lib/config-merge'
 import {
     readTextFileFromRepo,
     putFile,
@@ -92,6 +93,7 @@ export function ConfigPage() {
     const [isDirty, setIsDirty] = useState(false)
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
+    const [remoteConfigReady, setRemoteConfigReady] = useState(false)
     const [mode, setMode] = useState<'visual' | 'code'>('visual')
     const [parsedConfig, setParsedConfig] = useState<any>(null)
     const { isAuth, setPrivateKey } = useAuthStore()
@@ -203,51 +205,46 @@ export function ConfigPage() {
         try {
             setLoading(true)
             let content: string | null | undefined
+            let loadedFromRemote = false
 
-            // 1. 优先从服务器注入获取（config.astro 在构建时读取本地文件注入，无需网络）
-            if ((window as any).__SERVER_CONFIG__) {
-                content = (window as any).__SERVER_CONFIG__
-                console.log('Loaded config from server injection')
+            // The injected YAML is a build-time snapshot. Never use it to edit a
+            // private content repo that may have changed since the last deploy.
+            if (isAuth) {
+                try {
+                    const token = await getAuthToken()
+                    if (!token) throw new Error('未授权')
+                    const synthesized = await synthesizeConfig(token)
+                    content = yaml.dump(synthesized, { lineWidth: -1, noRefs: true })
+                    loadedFromRemote = true
+                    console.log('Loaded latest configuration from GitHub content repo')
+                } catch (error) {
+                    setRemoteConfigReady(false)
+                    console.error('Latest configuration unavailable:', error)
+                    toast.error('读取内容仓最新配置失败。为避免覆盖图片，已暂停保存；请刷新重试。')
+                }
             }
 
-            // 2. 尝试本地 fetch（dev 模式可能不可用，但值得一试）
+            // Unauthenticated visitors can view the last built configuration.
+            if (!content && (window as any).__SERVER_CONFIG__) {
+                content = (window as any).__SERVER_CONFIG__
+            }
             if (!content) {
                 try {
                     const localRes = await fetch('/ryuchan.config.yaml')
-                    if (localRes.ok) {
-                        content = await localRes.text()
-                        console.log('Loaded config from local file')
-                    }
-                } catch (e) {
-                    console.log('Local config not available')
-                }
-            }
-
-            // 3. 最后尝试从 GitHub 内容仓各模块 config.yaml 合成
-            if (!content) {
-                let token: string | undefined
-                try {
-                    token = await getAuthToken()
-                } catch (e) {
-                    console.log('Public access mode')
-                }
-
-                try {
-                    const synthesized = await synthesizeConfig(token)
-                    if (synthesized && Object.keys(synthesized).length > 0) {
-                        content = yaml.dump(synthesized, { lineWidth: -1, noRefs: true })
-                        console.log('Loaded config from GitHub content repo (synthesized from modules)')
-                    }
-                } catch (e) {
-                    console.log('GitHub config synthesis failed, using local config...')
+                    if (localRes.ok) content = await localRes.text()
+                } catch (error) {
+                    console.error('Local config not available:', error)
                 }
             }
 
             if (content) {
                 if (isDirty) {
-                    toast.info('检测到本地未保存更改，已跳过远程配置覆盖')
+                    setRemoteConfigReady(false)
+                    toast.info('检测到本地未保存更改；刷新页面以读取最新远程配置后再保存')
                 } else {
                     setConfigContent(content)
+                    setLastFetchedContent(content)
+                    setRemoteConfigReady(loadedFromRemote)
                     try {
                         const parsed = yaml.load(content) as any
                         if (!parsed.music) parsed.music = { api: 'https://163.hyc.moe', playlists: [] }
@@ -265,7 +262,6 @@ export function ConfigPage() {
                         console.error(e)
                     }
                 }
-                setLastFetchedContent(content)
             }
 
             // 后台静默加载 music.json（不阻塞页面渲染）
@@ -568,6 +564,10 @@ export function ConfigPage() {
             return
         }
         let toastId: string | number | undefined
+        if (!remoteConfigReady || !lastFetchedContent) {
+            toast.error('未读取到最新远程配置，请刷新页面后重试')
+            return
+        }
         try {
             setSaving(true)
             const token = await getAuthToken()
@@ -629,6 +629,11 @@ export function ConfigPage() {
             const treeItems: TreeItem[] = []
 
             if (!configToSave) throw new Error('配置未加载完成，无法保存')
+            // Merge this editor's changes onto the latest content repo state.
+            // Otherwise a later save from a still-open page reverts an earlier avatar.
+            const baseline = yaml.load(lastFetchedContent) as any
+            const latest = await synthesizeConfig(token)
+            configToSave = mergeConfigChanges(baseline, configToSave, latest)
             // 1. Stage images in the same Git tree as the configuration.
             const totalImages = Object.keys(pendingImages).length
             if (totalImages > 0) {
@@ -719,7 +724,7 @@ export function ConfigPage() {
 
             toast.success('🎉 配置更新成功！', {
                 id: toastId,
-                description: '更改已推送到仓库，GitHub Actions 将会自动重新部署。'
+                description: '已保存到内容仓；网站显示新内容还需等待宝塔下一次部署完成。'
             })
         } catch (error: any) {
             console.error(error)
@@ -864,7 +869,7 @@ export function ConfigPage() {
                                 <span className="hidden sm:inline">验证</span>
                             </button>
                         )}
-                        <button onClick={handleSave} disabled={saving || loading || !isAuth} className="btn btn-sm btn-primary px-6 shadow-lg shadow-primary/20">
+                        <button onClick={handleSave} disabled={saving || loading || !isAuth || !remoteConfigReady} className="btn btn-sm btn-primary px-6 shadow-lg shadow-primary/20">
                             {saving ? '保存中...' : '保存配置'}
                         </button>
                     </div>

@@ -42,11 +42,13 @@ async function loadAllModuleConfigs(token: string | undefined): Promise<ModuleCo
   for (const [key, path] of Object.entries(MODULE_PATHS)) {
     try {
       const raw = await readTextFileFromRepo(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, path, GITHUB_CONFIG.BRANCH)
+      if (!raw && key === 'site') throw new Error('内容仓的 site/config.yaml 不存在')
       if (raw) {
         configs[key] = (yaml.load(raw) as Record<string, unknown>) || {}
       }
-    } catch {
-      // 模块不存在则跳过
+    } catch (error) {
+      if (key === 'site') throw error
+      // 其他可选模块不存在则跳过
     }
   }
   return configs
@@ -62,6 +64,7 @@ function sub(cfg: Record<string, unknown> | undefined): string {
  */
 export async function synthesizeConfig(token: string | undefined): Promise<Record<string, unknown>> {
   const cfg = await loadAllModuleConfigs(token)
+  if (!cfg.site?.site || !cfg.site?.user) throw new Error('内容仓站点配置不完整，已阻止覆盖旧配置')
 
   const siteBase = ((cfg.site as any)?.site || {}) as Record<string, unknown>
 
