@@ -29,6 +29,7 @@ jobs:
       PUBLIC_GITHUB_APP_ID: ${{ vars.PUBLIC_GITHUB_APP_ID }}
       PUBLIC_GITHUB_ENCRYPT_KEY: ${{ vars.PUBLIC_GITHUB_ENCRYPT_KEY }}
       PUBLIC_FRONTEND_REPO: ${{ github.event.repository.name }}
+      PUBLIC_BUILD_ID: ${{ github.sha }}
     steps:
       - name: Validate production settings
         env:

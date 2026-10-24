@@ -99,6 +99,7 @@ class PublisherTests(unittest.TestCase):
         self.assertEqual((publisher.SITE / 'index.html').read_bytes(), b'new index')
         self.assertEqual((publisher.SITE / '.ryuchan-content-sha').read_bytes(), b'abcdef0123456789')
         self.assertFalse((publisher.SITE / 'blog/removed-post.html').exists())
+        self.assertFalse((publisher.SITE / 'blog').exists())
         self.assertFalse((publisher.SITE / '.ryuchan-manifest').exists())
         self.assertEqual(len(list(publisher.BACKUPS.glob('*.tar.gz'))), 1)
         self.assertFalse(self.archive.exists())

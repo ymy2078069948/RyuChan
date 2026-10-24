@@ -199,6 +199,18 @@ def prune_site(manifest):
                 continue
             target.unlink()
             removed += 1
+    # Remove directories left empty by the prune so removed pages return 404, not 403.
+    for dirpath, dirnames, filenames in os.walk(SITE, topdown=False, followlinks=False):
+        directory = Path(dirpath)
+        if directory == SITE or directory.is_symlink():
+            continue
+        relative = directory.relative_to(SITE)
+        if is_protected(relative):
+            continue
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
     return removed
 
 

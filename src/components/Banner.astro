@@ -52,8 +52,10 @@ const bannerHeight = BANNER_HEIGHT;
 
 // 随机图 API 配置
 const RANDOM_API_URL = BANNER_CONFIG?.randomUrl;
-// 首屏图片：服务端生成一个随机种子，确保每次刷新（或构建）时有一张初始图
-const initialRandomImage = `${RANDOM_API_URL}?t=${Date.now()}`;
+// 首屏图片：用构建 ID（提交 SHA）作为缓存种子。同一份代码重复构建会得到相同
+// HTML，增量发布才能只上传真正变化的文章页面。本地没有该变量时退回固定值。
+const BUILD_ID = import.meta.env.PUBLIC_BUILD_ID || "dev";
+const initialRandomImage = `${RANDOM_API_URL}?t=${BUILD_ID}`;
 ---
 
 <div id="banner" class="banner">
