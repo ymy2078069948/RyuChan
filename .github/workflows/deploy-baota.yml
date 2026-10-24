@@ -6,6 +6,8 @@ on:
   repository_dispatch:
     types: [content-update]
   workflow_dispatch:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
 
 permissions:
   contents: read
@@ -63,42 +65,10 @@ jobs:
           persist-credentials: false
           path: ryuchan-content
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install and build
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-          test -s dist/index.html
-          test -s dist/config/index.html
-          grep -q 'encodeGitHubPath' src/lib/github-client.ts || { echo 'Frontend URL fix has not been committed' >&2; exit 1; }
-
-      - name: Package static site
-        id: package
-        shell: bash
-        run: |
-          set -euo pipefail
-          archive="$RUNNER_TEMP/ryuchan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
-          tar -C dist -czf "$archive" .
-          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
-          printf 'sha256=%s\n' "$(sha256sum "$archive" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-
-      - name: Publish via pinned SSH host key
+      - name: Configure pinned SSH
         env:
           DEPLOY_KEY: ${{ secrets.BAOTA_DEPLOY_KEY }}
           KNOWN_HOSTS: ${{ secrets.BAOTA_KNOWN_HOSTS }}
-          BAOTA_HOST: ${{ vars.BAOTA_HOST }}
-          BAOTA_PORT: ${{ vars.BAOTA_PORT }}
-          ARCHIVE: ${{ steps.package.outputs.archive }}
-          SHA256: ${{ steps.package.outputs.sha256 }}
         shell: bash
         run: |
           set -euo pipefail
@@ -109,6 +79,77 @@ jobs:
           chmod 600 "$HOME/.ssh/ryuchan-deploy" "$HOME/.ssh/known_hosts"
           ssh-keygen -y -f "$HOME/.ssh/ryuchan-deploy" >/dev/null
           ssh-keygen -lf "$HOME/.ssh/known_hosts" >/dev/null
+
+      - name: Check whether private content changed
+        id: freshness
+        env:
+          BAOTA_HOST: ${{ vars.BAOTA_HOST }}
+          BAOTA_PORT: ${{ vars.BAOTA_PORT }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          content_sha="$(git -C ryuchan-content rev-parse HEAD)"
+          printf 'content_sha=%s\n' "$content_sha" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_EVENT_NAME" != schedule ]]; then
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          ssh_options=(-i "$HOME/.ssh/ryuchan-deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15)
+          live_sha="$(ssh "${ssh_options[@]}" -p "$BAOTA_PORT" "ryuchan-deploy@$BAOTA_HOST" 'cat /www/wwwroot/luokk.top/.ryuchan-content-sha 2>/dev/null || true')"
+          if [[ "$live_sha" == "$content_sha" ]]; then
+            echo 'deploy=false' >> "$GITHUB_OUTPUT"
+            echo "Content is already deployed: $content_sha"
+          else
+            echo 'deploy=true' >> "$GITHUB_OUTPUT"
+            echo "Content changed: $content_sha"
+          fi
+
+      - name: Setup pnpm
+        if: steps.freshness.outputs.deploy == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        if: steps.freshness.outputs.deploy == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install and build
+        if: steps.freshness.outputs.deploy == 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          test -s dist/index.html
+          test -s dist/config/index.html
+          grep -q 'encodeGitHubPath' src/lib/github-client.ts || { echo 'Frontend URL fix has not been committed' >&2; exit 1; }
+
+      - name: Include checked-out content commit in the site
+        if: steps.freshness.outputs.deploy == 'true'
+        run: printf '%s\n' '${{ steps.freshness.outputs.content_sha }}' > dist/.ryuchan-content-sha
+
+      - name: Package static site
+        if: steps.freshness.outputs.deploy == 'true'
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/ryuchan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+          tar -C dist -czf "$archive" .
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+          printf 'sha256=%s\n' "$(sha256sum "$archive" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish via pinned SSH host key
+        if: steps.freshness.outputs.deploy == 'true'
+        env:
+          BAOTA_HOST: ${{ vars.BAOTA_HOST }}
+          BAOTA_PORT: ${{ vars.BAOTA_PORT }}
+          ARCHIVE: ${{ steps.package.outputs.archive }}
+          SHA256: ${{ steps.package.outputs.sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
           remote_archive="/home/ryuchan-deploy/incoming/ryuchan-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
           ssh_options=(-i "$HOME/.ssh/ryuchan-deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -o ConnectTimeout=15)
           scp "${ssh_options[@]}" -P "$BAOTA_PORT" "$ARCHIVE" "ryuchan-deploy@$BAOTA_HOST:$remote_archive"

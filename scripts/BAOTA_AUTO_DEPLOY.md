@@ -4,13 +4,13 @@
 
 ## 文件与上线门槛
 
-1. 将本目录中 `src/lib/github-client.ts` 的路径编码修复连同 `.github/workflows/deploy-baota.yml` 提交到**前端 GitHub 仓库的 main**。当前本地目录是无 `.git` 的 ZIP 解压目录，不会因为本地文件存在就自动上传。不要先启用自动部署旧前端源码。
-2. 在**私有内容仓**的 `.github/workflows/` 添加 `scripts/trigger-baota-from-content.yml` 的内容；如果已有 `content-update` 派发工作流，先检查其目标前端仓库与事件类型，保留一个即可，避免重复触发。
+1. 将 `src/lib/github-client.ts` 的路径编码修复连同 `.github/workflows/deploy-baota.yml` 提交到**前端 GitHub 仓库的 main**。若手头是无 `.git` 的 ZIP 解压目录，需要先在真正的 Git 仓库提交；不要部署旧前端源码。
+2. 前端工作流每 15 分钟检查一次私有内容仓 main 的提交 SHA（GitHub 定时任务可能延迟）；**仅 SHA 变化时才构建并发布**。若内容仓已有 `trigger-deploy.yml`，只需保留现有文件，不要安装第二个相同触发器。内容仓的 `DISPATCH_TOKEN` 是可选的即时通知通道，缺失时不影响定时自动更新。
 3. 在前端仓库添加配置（Settings → Secrets and variables → Actions）：
    - **Variables**：`BAOTA_HOST`（公网 IP/域名）、`BAOTA_PORT`（SSH 端口）、`PUBLIC_GITHUB_APP_ID` 和 `PUBLIC_GITHUB_ENCRYPT_KEY`（必须与当前线上前端构建值完全相同；这两个 `PUBLIC_` 字段会进入前端构建产物，不能用 App 私钥）；
    - **Secrets**：`CONTENT_TOKEN`（仅可读取私有内容仓的 fine-grained token）、`BAOTA_DEPLOY_KEY`（下文生成的专用 SSH **私钥**）、`BAOTA_KNOWN_HOSTS`（核对指纹后的 SSH 主机公钥行）。
    - 前端代码现定内容仓为与前端仓库**同一 owner** 的 `RyuChan-Content`，分支 `main`。若实际不符，先改工作流的 `repository`、`PUBLIC_GITHUB_OWNER`、`PUBLIC_GITHUB_REPO` 并复核。
-4. 在内容仓添加 `FRONTEND_REPOSITORY` 变量（例如 `ymy2078069948/RyuChan`，以实际仓库名为准）及 `FRONTEND_DISPATCH_TOKEN` secret（仅对前端仓库有 Contents: write 的 fine-grained token，允许调用 repository_dispatch）。只授予最小所需仓库权限，不要使用 App 私钥。
+4. **可选**：若希望内容仓 push 后立即触发，而不是等待定时任务，在内容仓设置 `DISPATCH_TOKEN` secret：仅对前端仓库授予 Contents: write 的 fine-grained token。现有 `trigger-deploy.yml` 会发送 `content-update`。不要用已有的宽权限个人令牌或 App 私钥替代。
 
 ## 在电脑生成专用部署密钥
 
@@ -46,6 +46,6 @@ ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
 
 ## 验证与恢复
 
-先在前端仓库 Actions 手动运行一次 `Deploy RyuChan to Baota`，必须同时通过 build、上传、发布步骤；确认浏览器刷新 `/config/` 后展示新值，然后在内容仓改一个已知的非敏感字段并验证自动派发。工作流使用 `concurrency` 串行排队。
+先在前端仓库 Actions 手动运行一次 `Deploy RyuChan to Baota`，必须同时通过 build、上传、发布步骤；确认浏览器刷新 `/config/` 后展示新值。之后在内容仓改一个已知的非敏感字段并验证下一次定时任务会部署新 SHA；如配置了 `DISPATCH_TOKEN`，验证 `content-update` 派发会提前触发。工作流使用 `concurrency` 串行排队。
 
 发布器输出完整站点备份 tar.gz 路径；构建失败不接触线上站点，发布途中失败时保留备份供人工恢复。不要单凭保存成功 Toast 或 `pnpm build` 结果推断线上已更新。
