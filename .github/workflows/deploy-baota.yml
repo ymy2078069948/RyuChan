@@ -163,16 +163,16 @@ jobs:
             if live=$(ssh "${ssh_options[@]}" -p "$BAOTA_PORT" "ryuchan-deploy@$BAOTA_HOST" 'cd /www/wwwroot/luokk.top && find . -type f -not -name .user.ini -not -name .htaccess -print0 | sort -z | xargs -0 sha256sum' 2>/dev/null); then
               printf '%s\n' "$live" > "$RUNNER_TEMP/ryuchan-live.txt"
               awk 'NR==FNR { live[substr($0,67)]=substr($0,1,64); next } { path=substr($0,67); if (!(path in live) || live[path]!=substr($0,1,64)) print path }' "$RUNNER_TEMP/ryuchan-live.txt" "$manifest" > "$RUNNER_TEMP/ryuchan-changed.txt"
+              cp "$manifest" dist/.ryuchan-manifest
               if [[ -s "$RUNNER_TEMP/ryuchan-changed.txt" ]]; then
-                cp "$manifest" dist/.ryuchan-manifest
                 printf '%s\n' './.ryuchan-manifest' >> "$RUNNER_TEMP/ryuchan-changed.txt"
-                tar -C dist -czf "$archive" -T "$RUNNER_TEMP/ryuchan-changed.txt"
-                rm -f dist/.ryuchan-manifest
-                echo "Incremental bundle: $(wc -c < "$archive") bytes, $(wc -l < "$RUNNER_TEMP/ryuchan-changed.txt") entries" >&2
-                publish=true
               else
-                echo 'Built site already matches the live site; nothing to publish.' >&2
+                printf '%s\n' './.ryuchan-manifest' > "$RUNNER_TEMP/ryuchan-changed.txt"
               fi
+              tar -C dist -czf "$archive" -T "$RUNNER_TEMP/ryuchan-changed.txt"
+              rm -f dist/.ryuchan-manifest
+              echo "Incremental bundle: $(wc -c < "$archive") bytes, $(($(wc -l < "$RUNNER_TEMP/ryuchan-changed.txt") - 1)) changed files" >&2
+              publish=true
             else
               echo 'Live manifest unavailable; falling back to a full bundle.' >&2
               tar -C dist -czf "$archive" .
