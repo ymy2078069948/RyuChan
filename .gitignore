@@ -51,6 +51,12 @@ src/data/albums.json
 public/image/
 public/logo.png
 public/profile.png
+# content-repo brand images use content hashes for cache-safe URLs
+public/profile-*.*
+public/logo-*.*
+public/favicon-*.*
+public/WeChat-*.*
+public/Alipay-*.*
 public/favicon.ico
 public/Alipay.jpg
 public/WeChat.jpg

@@ -162,6 +162,7 @@ export async function buildConfigTreeItems(config: Record<string, unknown>): Pro
       description: userCfg.description,
       site: userCfg.site,
       avatar: userCfg.avatar,
+      title_image: userCfg.title_image,
       qr_wechat: userCfg.qr_wechat,
       qr_alipay: userCfg.qr_alipay,
       sidebar: userCfg.sidebar,

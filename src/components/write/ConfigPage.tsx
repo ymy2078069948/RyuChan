@@ -18,7 +18,7 @@ import {
 } from '@/lib/github-client'
 import yaml from 'js-yaml'
 import { useAuthStore } from './hooks/use-auth'
-import { readFileAsText, fileToBase64NoPrefix } from '@/lib/file-utils'
+import { readFileAsText, fileToBase64NoPrefix, hashFileSHA256 } from '@/lib/file-utils'
 import { CustomSelect } from './components/ui/custom-select'
 
 // Common social icons mapping
@@ -53,6 +53,32 @@ const SOCIAL_PRESETS = [
     { label: 'YouTube', value: 'ri:youtube-line' },
     { label: 'Zhihu', value: 'ri:zhihu-line' },
 ]
+
+// Preserve the real image format and change the URL when the content changes.
+// prebuild-content.mjs copies assets/brand/* into the public root.
+const BRAND_IMAGE_NAMES: Record<string, string> = {
+    'site.favicon': 'favicon',
+    'user.avatar': 'profile',
+    'user.title_image': 'logo',
+    'user.qr_wechat': 'WeChat',
+    'user.qr_alipay': 'Alipay',
+}
+
+const BRAND_IMAGE_EXTENSIONS: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/x-icon': 'ico',
+    'image/vnd.microsoft.icon': 'ico',
+}
+
+function brandImageExtension(file: File): string | undefined {
+    if (file.type) return BRAND_IMAGE_EXTENSIONS[file.type.toLowerCase()]
+    // Some browsers do not report a MIME type for .ico files.
+    const fallback = file.name.match(/\.(png|jpe?g|webp|gif|ico)$/i)?.[1]?.toLowerCase()
+    return fallback === 'jpeg' ? 'jpg' : fallback
+}
 
 const COMMENT_PROVIDERS = [
     { value: 'giscus', label: 'Giscus' },
@@ -266,6 +292,18 @@ export function ConfigPage() {
         // no localTitleType sync here; UI derives from parsedConfig
         setConfigContent(yaml.dump(newConfig))
         setIsDirty(true)
+    }
+
+    const updateImageUrl = (target: string, value: string) => {
+        setPendingImages(prev => {
+            const pending = prev[target]
+            if (!pending) return prev
+            URL.revokeObjectURL(pending.previewUrl)
+            const next = { ...prev }
+            delete next[target]
+            return next
+        })
+        updateConfigValue(target, value)
     }
 
     const handleSetTitleType = (value: 'image' | 'text') => {
@@ -529,6 +567,7 @@ export function ConfigPage() {
         if (!window.confirm('确定保存配置吗？这将直接推送到 GitHub 仓库。')) {
             return
         }
+        let toastId: string | number | undefined
         try {
             setSaving(true)
             const token = await getAuthToken()
@@ -570,95 +609,56 @@ export function ConfigPage() {
             }
             setMusicData(musicDataForSave)
 
-            const toastId = toast.loading('🚀 正在初始化保存...')
+            toastId = toast.loading('🚀 正在初始化保存...')
 
-            let configToUpdate = parsedConfig ? JSON.parse(JSON.stringify(parsedConfig)) : null
+            // Parse code mode before uploading so selected images cannot be overwritten
+            // by the YAML text (which still contains local blob: preview URLs).
+            let configToSave: any
+            if (mode === 'code') {
+                try {
+                    configToSave = yaml.load(configContent)
+                    if (!configToSave || typeof configToSave !== 'object' || Array.isArray(configToSave)) {
+                        throw new Error('配置必须是 YAML 对象')
+                    }
+                } catch (error) {
+                    throw new Error(`YAML 格式无效：${error instanceof Error ? error.message : String(error)}`)
+                }
+            } else {
+                configToSave = parsedConfig ? JSON.parse(JSON.stringify(parsedConfig)) : null
+            }
             const treeItems: TreeItem[] = []
 
-            // 1. Process Images
-            if (Object.keys(pendingImages).length > 0) {
-                const totalImages = Object.keys(pendingImages).length
+            if (!configToSave) throw new Error('配置未加载完成，无法保存')
+            // 1. Stage images in the same Git tree as the configuration.
+            const totalImages = Object.keys(pendingImages).length
+            if (totalImages > 0) {
                 toast.loading(`📤 准备上传 ${totalImages} 张图片...`, { id: toastId })
-
                 let idx = 1
                 for (const [target, { file }] of Object.entries(pendingImages)) {
-                    toast.loading(`📸 正在处理图片 (${idx}/${totalImages}): ${file.name}...`, { id: toastId })
-                    const base64 = await fileToBase64NoPrefix(file)
-                    let path, filename, publicPath
-
-                    // 处理favicon和profile.png，直接覆盖原文件
-                    if (target === 'site.favicon') {
-                        path = 'assets/brand/favicon.ico'
-                        filename = 'favicon.ico'
-                        publicPath = '/favicon.ico'
-                    } else if (target === 'user.avatar') {
-                        path = 'assets/brand/profile.png'
-                        filename = 'profile.png'
-                        publicPath = '/profile.png'
-                    } else if (target === 'user.title_image') {
-                        path = 'assets/brand/logo.png'
-                        filename = 'logo.png'
-                        publicPath = '/logo.png'
-                    } else if (target === 'user.qr_wechat') {
-                        path = 'assets/brand/WeChat.jpg'
-                        filename = 'WeChat.jpg'
-                        publicPath = '/WeChat.jpg'
-                    } else if (target === 'user.qr_alipay') {
-                        path = 'assets/brand/Alipay.jpg'
-                        filename = 'Alipay.jpg'
-                        publicPath = '/Alipay.jpg'
-                    } else {
-                        // 不处理其他图片类型
-                        continue
-                    }
-
-                    // Create Blob
+                    const stem = BRAND_IMAGE_NAMES[target]
+                    const extension = brandImageExtension(file)
+                    if (!stem || !extension || (extension === 'ico' && target !== 'site.favicon')) throw new Error(`不支持的图片格式：${file.name}（支持 PNG、JPEG、WebP、GIF；ICO 仅限网站图标）`)
+                    toast.loading(`📸 正在处理图片 (${idx++}/${totalImages}): ${file.name}...`, { id: toastId })
+                    const [base64, hash] = await Promise.all([fileToBase64NoPrefix(file), hashFileSHA256(file)])
+                    const filename = `${stem}-${hash}.${extension}`
                     const { sha } = await createBlob(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, base64, 'base64')
-                    treeItems.push({
-                        path: path,
-                        mode: '100644',
-                        type: 'blob',
-                        sha: sha
-                    })
+                    treeItems.push({ path: `assets/brand/${filename}`, mode: '100644', type: 'blob', sha })
 
-                    // Update config with new path
-                    if (configToUpdate) {
-                        const parts = target.split('.')
-                        let current = configToUpdate
-                        for (let i = 0; i < parts.length - 1; i++) {
-                            if (!current[parts[i]]) current[parts[i]] = {}
-                            current = current[parts[i]]
-                        }
-                        current[parts[parts.length - 1]] = publicPath
+                    const parts = target.split('.')
+                    let current = configToSave
+                    for (const part of parts.slice(0, -1)) {
+                        if (!current[part]) current[part] = {}
+                        current = current[part]
                     }
-                    idx++
-                }
-                setPendingImages({})
-            }
-
-            // 2. Process Config File — 分解为各模块 config.yaml 写入内容仓
-            let configToSave = configToUpdate
-            let savedConfigContent = configContent  // 用于重置 dirty 状态
-            if (mode === 'visual' && configToUpdate) {
-                configToSave = configToUpdate
-                savedConfigContent = yaml.dump(configToUpdate)
-            } else if (mode === 'code') {
-                // 代码模式：解析 YAML 得到对象
-                try {
-                    configToSave = yaml.load(configContent) as any
-                    savedConfigContent = configContent
-                } catch {
-                    toast.error('YAML 格式无效，请检查语法')
-                    setSaving(false)
-                    return
+                    current[parts[parts.length - 1]] = `/${filename}`
                 }
             }
 
-            if (configToSave) {
-                toast.loading('正在分解配置到各模块...', { id: toastId })
-                const configTreeItems = await buildConfigTreeItems(configToSave)
-                treeItems.push(...configTreeItems)
-            }
+            // 2. Split the resolved configuration into its module files.
+            const savedConfigContent = yaml.dump(configToSave)
+            toast.loading('正在分解配置到各模块...', { id: toastId })
+            const configTreeItems = await buildConfigTreeItems(configToSave)
+            treeItems.push(...configTreeItems)
 
             // 3. Process Music Data File (if dirty)
             if (musicDataDirty && musicDataForSave) {
@@ -708,7 +708,11 @@ export function ConfigPage() {
             toast.loading('🔄 正在同步远程分支...', { id: toastId })
             await updateRef(token, GITHUB_CONFIG.OWNER, GITHUB_CONFIG.REPO, refName, newCommitSha)
 
-            // Reset dirty states
+            // Only clear pending uploads after the commit is actually on the branch.
+            for (const { previewUrl } of Object.values(pendingImages)) URL.revokeObjectURL(previewUrl)
+            setPendingImages({})
+            setParsedConfig(configToSave)
+            setConfigContent(savedConfigContent)
             setIsDirty(false)
             setMusicDataDirty(false)
             setLastFetchedContent(savedConfigContent)
@@ -720,6 +724,7 @@ export function ConfigPage() {
         } catch (error: any) {
             console.error(error)
             toast.error('❌ 保存配置失败', {
+                id: toastId,
                 description: error.message
             })
         } finally {
@@ -736,8 +741,18 @@ export function ConfigPage() {
         const file = e.target.files?.[0]
         if (!file || !uploadTarget) return
 
+        const extension = brandImageExtension(file)
+        if (!extension || (extension === 'ico' && uploadTarget !== 'site.favicon')) {
+            toast.error('不支持的图片格式，请选择 PNG、JPEG、WebP 或 GIF（网站图标还支持 ICO）')
+            setUploadTarget('')
+            e.target.value = ''
+            return
+        }
         const previewUrl = URL.createObjectURL(file)
-        setPendingImages(prev => ({ ...prev, [uploadTarget]: { file, previewUrl } }))
+        setPendingImages(prev => {
+            if (prev[uploadTarget]) URL.revokeObjectURL(prev[uploadTarget].previewUrl)
+            return { ...prev, [uploadTarget]: { file, previewUrl } }
+        })
 
         // Update preview in UI immediately
         updateConfigValue(uploadTarget, previewUrl)
@@ -906,8 +921,8 @@ export function ConfigPage() {
                                             type="text"
                                             className="input input-sm input-bordered w-full text-center text-xs rounded-full bg-base-100 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                                             value={parsedConfig?.site?.favicon || ''}
-                                            onChange={e => updateConfigValue('site.favicon', e.target.value)}
-                                            placeholder="图标 URL 或上传图片（将重命名为 favicon.ico）"
+                                            onChange={e => updateImageUrl('site.favicon', e.target.value)}
+                                            placeholder="图标 URL 或上传图片（自动保留图片格式）"
                                         />
                                     </div>
                                     <div className="space-y-3">
@@ -931,7 +946,7 @@ export function ConfigPage() {
                                             type="text"
                                             className="input input-sm input-bordered w-full text-center text-xs rounded-full bg-base-100 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                                             value={parsedConfig?.user?.avatar || ''}
-                                            onChange={e => updateConfigValue('user.avatar', e.target.value)}
+                                            onChange={e => updateImageUrl('user.avatar', e.target.value)}
                                             placeholder="头像 URL"
                                         />
                                     </div>
@@ -958,7 +973,7 @@ export function ConfigPage() {
                                                 type="text"
                                                 className="input input-sm input-bordered w-full text-center text-xs rounded-full bg-base-100 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                                                 value={parsedConfig?.user?.qr_wechat || ''}
-                                                onChange={e => updateConfigValue('user.qr_wechat', e.target.value)}
+                                                onChange={e => updateImageUrl('user.qr_wechat', e.target.value)}
                                                 placeholder="微信赞赏码 URL 或上传图片"
                                             />
                                         </div>
@@ -978,7 +993,7 @@ export function ConfigPage() {
                                                 type="text"
                                                 className="input input-sm input-bordered w-full text-center text-xs rounded-full bg-base-100 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                                                 value={parsedConfig?.user?.qr_alipay || ''}
-                                                onChange={e => updateConfigValue('user.qr_alipay', e.target.value)}
+                                                onChange={e => updateImageUrl('user.qr_alipay', e.target.value)}
                                                 placeholder="支付宝收款码 URL 或上传图片"
                                             />
                                         </div>
@@ -1120,7 +1135,7 @@ export function ConfigPage() {
                                                         type="text"
                                                         className="input input-bordered h-10 w-full text-center rounded-full bg-base-100 shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20"
                                                         value={parsedConfig?.user?.title_image || parsedConfig?.user?.titleImage || ''}
-                                                        onChange={e => updateConfigValue('user.title_image', e.target.value)}
+                                                        onChange={e => updateImageUrl('user.title_image', e.target.value)}
                                                         placeholder="标题图片 URL"
                                                     />
                                                 </div>

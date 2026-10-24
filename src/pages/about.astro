@@ -5,6 +5,7 @@ import Card from "@/components/temple/Card.astro";
 import GitHubStats from "@/components/mdx/GitHubStats.astro";
 import { getCollection } from "astro:content";
 import aboutConfig from "@/data/about-config.js";
+import { USER_AVATAR } from "@/config";
 
 const aboutEntries = await getCollection('about');
 const aboutEntry = aboutEntries[0];
@@ -30,7 +31,7 @@ const cfg = aboutConfig.default || aboutConfig;
           <div
             class="w-32 h-32 md:w-40 md:h-40 rounded-xl ring ring-primary ring-offset-base-100 ring-offset-2 overflow-hidden"
           >
-            <img src={aboutEntry?.data?.avatar || cfg.avatar || "/profile.png"} alt={aboutEntry?.data?.displayName || cfg.name} width="160" height="160" loading="eager" />
+            <img src={USER_AVATAR || aboutEntry?.data?.avatar || cfg.avatar || "/profile.png"} alt={aboutEntry?.data?.displayName || cfg.name} width="160" height="160" loading="eager" />
           </div>
         </div>
 
