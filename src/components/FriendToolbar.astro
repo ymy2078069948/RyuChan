@@ -1,0 +1,101 @@
+---
+const APPLY_URL =
+  "https://github.com/ymy2078069948/RyuChan/issues/new?title=%E5%8F%8B%E9%93%BE%E7%94%B3%E8%AF%B7&body=%E7%BD%91%E7%AB%99%E5%90%8D%E7%A7%B0%EF%BC%9A%0A%E7%BD%91%E7%AB%99%E9%93%BE%E6%8E%A5%EF%BC%9A%0A%E7%AE%80%E4%BB%8B%EF%BC%9A%0A%E5%A4%B4%E5%83%8F%E9%93%BE%E6%8E%A5%EF%BC%9A";
+---
+
+<div id="friend-toolbar" class="card-base mb-4 flex flex-wrap items-center gap-2 p-4">
+  <span class="text-sm font-bold text-base-content">友人帐</span>
+  <span id="friend-count" class="text-xs text-base-content/50"></span>
+  <div id="friend-groups" class="flex flex-wrap items-center gap-1"></div>
+  <div class="ml-auto flex flex-wrap gap-2">
+    <button
+      type="button"
+      id="friend-random"
+      class="btn btn-sm btn-ghost rounded-xl border bg-base-100/60 font-semibold"
+    >
+      随机访问
+    </button>
+    <a
+      href={APPLY_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="btn btn-sm btn-primary rounded-xl font-semibold shadow-lg shadow-primary/20"
+    >
+      申请友链
+    </a>
+  </div>
+</div>
+
+<script is:inline>
+  (() => {
+    let built = false;
+    const build = () => {
+      const toolbar = document.getElementById("friend-toolbar");
+      const cards = Array.from(document.querySelectorAll("[data-friend-card]"));
+      if (!toolbar || !cards.length || toolbar.dataset.bound === "1") return;
+      toolbar.dataset.bound = "1";
+      built = true;
+
+      const countEl = document.getElementById("friend-count");
+      if (countEl) countEl.textContent = `${cards.length} 位朋友`;
+
+      const groupsEl = document.getElementById("friend-groups");
+      const badges = Array.from(
+        new Set(cards.map((card) => card.dataset.friendBadge).filter(Boolean)),
+      );
+      const groups = ["全部", ...badges];
+
+      const applyFilter = (group) => {
+        cards.forEach((card) => {
+          const show = group === "全部" || card.dataset.friendBadge === group;
+          card.classList.toggle("hidden", !show);
+        });
+        if (groupsEl) {
+          groupsEl.querySelectorAll("button").forEach((button) => {
+            const active = button.dataset.group === group;
+            button.classList.toggle("btn-primary", active);
+            button.classList.toggle("btn-ghost", !active);
+          });
+        }
+      };
+
+      if (groupsEl) {
+        groupsEl.innerHTML = "";
+        groups.forEach((group) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.dataset.group = group;
+          button.className = `btn btn-xs rounded-lg ${group === "全部" ? "btn-primary" : "btn-ghost"}`;
+          button.textContent = group;
+          button.addEventListener("click", () => applyFilter(group));
+          groupsEl.appendChild(button);
+        });
+      }
+
+      const randomButton = document.getElementById("friend-random");
+      randomButton?.addEventListener("click", () => {
+        const links = Array.from(document.querySelectorAll('[data-friend-card] a[href^="http"]')).filter(
+          (link) => !link.closest(".hidden"),
+        );
+        if (!links.length) return;
+        const pick = links[Math.floor(Math.random() * links.length)];
+        window.open(pick.href, "_blank", "noopener");
+      });
+    };
+
+    const start = Date.now();
+    const timer = setInterval(() => {
+      if (built) {
+        clearInterval(timer);
+        return;
+      }
+      build();
+      if (Date.now() - start > 6000) clearInterval(timer);
+    }, 200);
+
+    document.addEventListener("astro:page-load", () => {
+      built = false;
+      build();
+    });
+  })();
+</script>

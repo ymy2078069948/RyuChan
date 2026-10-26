@@ -140,4 +140,44 @@
     return doFetch();
   };
 
+  /**
+   * 获取访问趋势（/pageviews?unit=day）
+   * @param {string} baseUrl
+   * @param {string} shareId
+   * @param {object} queryParams
+   * @returns {Promise<{pageviews: Array<{x: string, y: number}>, sessions: Array<{x: string, y: number}>}>}
+   */
+  global.fetchUmamiPageviews = async function (baseUrl, shareId, queryParams) {
+    async function doFetch(isRetry = false) {
+      const { websiteId, token } = await global.getUmamiShareData(baseUrl, shareId);
+      const now = Date.now();
+      const params = new URLSearchParams({
+        startAt: now - 30 * 24 * 60 * 60 * 1000,
+        endAt: now,
+        unit: 'day',
+        timezone: 'Asia/Shanghai',
+        ...queryParams
+      });
+
+      const res = await fetch(`${baseUrl}/api/websites/${websiteId}/pageviews?${params.toString()}`, {
+        headers: {
+          'x-umami-share-token': token,
+          'x-umami-share-context': '1'
+        }
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 && !isRetry) {
+          global.clearUmamiShareCache(shareId);
+          return doFetch(true);
+        }
+        throw new Error('获取访问趋势失败: ' + res.status);
+      }
+
+      return res.json();
+    }
+
+    return doFetch();
+  };
+
 })(window);

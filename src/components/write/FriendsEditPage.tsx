@@ -444,6 +444,8 @@ export default function FriendsEditPage({ initialFriends = [] }: Props) {
               <div
                 key={index}
                 ref={el => { cardRefs.current[index] = el }}
+                data-friend-card
+                data-friend-badge={friend.badge || ""}
                 className={`group relative block bg-base-100 rounded-2xl border border-base-200 hover:border-primary/40 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden ${
                   isEditing ? 'ring-2 ring-primary/30' : ''
                 }`}

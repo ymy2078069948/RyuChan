@@ -30,6 +30,10 @@ export const CONTENT_PATHS = {
   homeSitesList: 'src/content/home-sites/list',
   /** 首页模块头像图片 */
   homeSitesAvatars: 'assets/images/home-sites',
+  /** 瞬间（说说）独立 YAML 文件 */
+  momentsList: 'src/content/moments/list',
+  /** 瞬间配图 */
+  momentsImages: 'assets/images/moments',
   /** 合成配置文件（内容仓库根目录） */
   config: 'ryuchan.config.yaml',
   /** 音乐数据 */

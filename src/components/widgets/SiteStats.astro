@@ -1,41 +1,14 @@
 ---
-import { getCollection } from "astro:content";
 import { Icon } from "astro-icon/components";
+import { getSiteStats } from "@/lib/site-stats";
 import dayjs from "@utils/dayjs";
-import { DATE_FORMAT, SITE_START_DATE } from "@config";
+import { DATE_FORMAT } from "@config";
 
-const posts = (await getCollection("blog")).filter((post) => !post.data.draft);
-const postCount = posts.length;
-
-const categories = new Set<string>();
-const tags = new Set<string>();
-let totalChars = 0;
-let firstDate = Number.POSITIVE_INFINITY;
-let lastUpdated = 0;
-
-for (const post of posts) {
-  for (const category of post.data.categories || []) categories.add(category);
-  for (const tag of post.data.tags || []) tags.add(tag);
-  totalChars += (post.body || "").replace(/\s+/g, "").length;
-  const created = new Date(post.data.pubDate).getTime();
-  if (created < firstDate) firstDate = created;
-  const updated = new Date(post.data.updated ?? post.data.pubDate).getTime();
-  if (updated > lastUpdated) lastUpdated = updated;
-}
-
-const now = Date.now();
-const configuredStart = SITE_START_DATE ? new Date(SITE_START_DATE).getTime() : Number.NaN;
-const startTime = Number.isFinite(configuredStart) ? configuredStart : firstDate;
-const runningDays = Number.isFinite(startTime)
-  ? Math.max(1, Math.ceil((now - startTime) / 86_400_000))
-  : 1;
-const lastUpdatedText = lastUpdated
-  ? dayjs(lastUpdated).format(DATE_FORMAT)
-  : "—";
+const { postCount, categoryCount, tagCount, totalChars, lastUpdatedTs, runningDays } =
+  await getSiteStats();
+const lastUpdatedText = lastUpdatedTs ? dayjs(lastUpdatedTs).format(DATE_FORMAT) : "—";
 const totalWordsText =
-  totalChars >= 10_000
-    ? `${(totalChars / 10_000).toFixed(1)}w`
-    : String(totalChars);
+  totalChars >= 10_000 ? `${(totalChars / 10_000).toFixed(1)}w` : String(totalChars);
 ---
 
 <div class="card-base p-4">
@@ -51,11 +24,11 @@ const totalWordsText =
     </div>
     <div class="rounded-xl bg-base-200/50 px-1 py-2">
       <div class="text-[11px] text-base-content/55">分类</div>
-      <div class="text-base font-bold text-primary">{categories.size}</div>
+      <div class="text-base font-bold text-primary">{categoryCount}</div>
     </div>
     <div class="rounded-xl bg-base-200/50 px-1 py-2">
       <div class="text-[11px] text-base-content/55">标签</div>
-      <div class="text-base font-bold text-primary">{tags.size}</div>
+      <div class="text-base font-bold text-primary">{tagCount}</div>
     </div>
   </div>
 

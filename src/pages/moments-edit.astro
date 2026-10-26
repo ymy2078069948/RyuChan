@@ -1,0 +1,17 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import MomentsEditPage from "@/components/write/MomentsEditPage";
+import { loadMoments } from "@/lib/load-moments";
+
+const moments = loadMoments();
+---
+
+<BaseLayout
+  title="瞬间编辑"
+  isIndexed={false}
+  showSidebar={false}
+  showBanner={false}
+  showTOC={false}
+>
+  <MomentsEditPage client:only="react" initialMoments={moments} />
+</BaseLayout>

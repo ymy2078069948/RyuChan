@@ -311,6 +311,7 @@ function mergeYaml(srcDir, outFile) {
 mergeYaml(path.resolve(SRC_CONTENT, 'friends/list'), path.resolve(ROOT, 'src/data/friends.yaml'));
 mergeYaml(path.resolve(SRC_CONTENT, 'project/src'), path.resolve(ROOT, 'src/data/projects.yaml'));
 mergeYaml(path.resolve(SRC_CONTENT, 'home-sites/list'), path.resolve(ROOT, 'src/data/home-sites.yaml'));
+mergeYaml(path.resolve(SRC_CONTENT, 'moments/list'), path.resolve(ROOT, 'src/data/moments.yaml'));
 
 // navigation.yaml: 内容仓 { category, icon, navigations } → 前端 { title, icon, items }
 const navDir = path.resolve(SRC_CONTENT, 'navigation/categories');

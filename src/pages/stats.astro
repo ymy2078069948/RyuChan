@@ -1,0 +1,294 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { Icon } from "astro-icon/components";
+import { getCollection } from "astro:content";
+import dayjs from "@utils/dayjs";
+import { DATE_FORMAT, GITHUB_CONFIG, commentsConfig, umamiConfig } from "@config";
+import { getSiteStats } from "@/lib/site-stats";
+
+const stats = await getSiteStats();
+const posts = (await getCollection("blog")).filter((post) => !post.data.draft);
+const postUrls = Array.from(new Set([...posts.map((post) => `/blog/${post.slug}/`), "/moments/"]));
+
+const twikooEnvId =
+  commentsConfig?.enable && commentsConfig.type === "twikoo"
+    ? commentsConfig.twikoo?.envId ?? null
+    : null;
+
+const lastUpdatedText = stats.lastUpdatedTs ? dayjs(stats.lastUpdatedTs).format(DATE_FORMAT) : "—";
+const totalWordsText =
+  stats.totalChars >= 10_000 ? `${(stats.totalChars / 10_000).toFixed(1)}w` : String(stats.totalChars);
+
+const clientConfig = {
+  umami: umamiConfig,
+  twikooEnvId,
+  githubOwner: GITHUB_CONFIG?.owner ?? "",
+  postUrls,
+};
+---
+
+<BaseLayout title="数据统计" isIndexed={false}>
+  <!-- 页头 -->
+  <div class="card-base p-5">
+    <h1 class="flex items-center gap-2 text-2xl font-bold text-base-content md:text-3xl">
+      <Icon name="material-symbols:bar-chart-rounded" class="h-7 w-7 text-primary" />
+      <span>数据统计</span>
+    </h1>
+    <p class="mt-1 text-sm text-base-content/60">
+      来自自托管 Umami 的访问数据，以及站点、GitHub、评论的汇总信息。
+    </p>
+  </div>
+
+  <!-- 访问统计 -->
+  <div class="card-base p-5">
+    <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-base-content">
+      <Icon name="material-symbols:visibility-outline" class="h-5 w-5 text-primary" />
+      <span>访问统计</span>
+      <span id="stats-range" class="text-xs font-normal text-base-content/50"></span>
+    </h2>
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">访问量</div>
+        <div id="stat-views" class="mt-1 text-2xl font-bold text-primary">-</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">访客数</div>
+        <div id="stat-visitors" class="mt-1 text-2xl font-bold text-primary">-</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">访问次数</div>
+        <div id="stat-visits" class="mt-1 text-2xl font-bold text-primary">-</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">跳出率</div>
+        <div id="stat-bounces" class="mt-1 text-2xl font-bold text-primary">-</div>
+      </div>
+    </div>
+    <div id="stats-chart" class="mt-4 flex h-40 items-end gap-1 rounded-xl bg-base-200/30 p-3">
+      <span class="m-auto text-sm text-base-content/50">加载中…</span>
+    </div>
+  </div>
+
+  <!-- 热门页面 -->
+  <div class="card-base p-5">
+    <h2 class="mb-3 flex items-center gap-2 text-lg font-bold text-base-content">
+      <Icon name="lucide:flame" class="h-5 w-5 text-primary" />
+      <span>热门页面</span>
+    </h2>
+    <ol id="stats-paths" class="space-y-2 text-sm">
+      <li class="text-base-content/50">加载中…</li>
+    </ol>
+  </div>
+
+  <!-- 站点统计 -->
+  <div class="card-base p-5">
+    <h2 class="mb-3 flex items-center gap-2 text-lg font-bold text-base-content">
+      <Icon name="material-symbols:database-outline" class="h-5 w-5 text-primary" />
+      <span>站点统计</span>
+    </h2>
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">文章</div>
+        <div class="mt-1 text-xl font-bold text-primary">{stats.postCount}</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">分类</div>
+        <div class="mt-1 text-xl font-bold text-primary">{stats.categoryCount}</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">标签</div>
+        <div class="mt-1 text-xl font-bold text-primary">{stats.tagCount}</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">总字数</div>
+        <div class="mt-1 text-xl font-bold text-primary">{totalWordsText}</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">最后更新</div>
+        <div class="mt-1 text-sm font-semibold text-base-content/80">{lastUpdatedText}</div>
+      </div>
+      <div class="rounded-xl bg-base-200/50 p-3 text-center">
+        <div class="text-xs text-base-content/55">运行天数</div>
+        <div class="mt-1 text-xl font-bold text-primary">{stats.runningDays}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+    <!-- 评论统计 -->
+    <div class="card-base p-5">
+      <h2 class="mb-3 flex items-center gap-2 text-lg font-bold text-base-content">
+        <Icon name="lucide:message-circle" class="h-5 w-5 text-primary" />
+        <span>评论</span>
+      </h2>
+      <div class="flex items-baseline gap-2">
+        <span id="stat-comments" class="text-3xl font-bold text-primary">-</span>
+        <span class="text-sm text-base-content/60">条评论</span>
+      </div>
+      <p class="mt-2 text-xs text-base-content/45">统计范围：全部已发布文章 + 瞬间页面</p>
+    </div>
+
+    <!-- GitHub 统计 -->
+    <div class="card-base p-5">
+      <h2 class="mb-3 flex items-center gap-2 text-lg font-bold text-base-content">
+        <Icon name="ri:github-fill" class="h-5 w-5 text-primary" />
+        <span>GitHub</span>
+      </h2>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="rounded-xl bg-base-200/50 p-2">
+          <div class="text-[11px] text-base-content/55">仓库</div>
+          <div id="gh-repos" class="text-lg font-bold text-primary">-</div>
+        </div>
+        <div class="rounded-xl bg-base-200/50 p-2">
+          <div class="text-[11px] text-base-content/55">关注者</div>
+          <div id="gh-followers" class="text-lg font-bold text-primary">-</div>
+        </div>
+        <div class="rounded-xl bg-base-200/50 p-2">
+          <div class="text-[11px] text-base-content/55">获星</div>
+          <div id="gh-stars" class="text-lg font-bold text-primary">-</div>
+        </div>
+      </div>
+      <p class="mt-2 text-xs text-base-content/45">数据来自公共 GitHub API，可能有缓存延迟</p>
+    </div>
+  </div>
+
+  <script define:vars={{ clientConfig }} is:inline>
+    (() => {
+      const init = () => {
+        const cfg = clientConfig;
+        if (!cfg) return;
+        const umami = cfg.umami;
+        const setText = (id, value) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = value;
+        };
+
+        // 访问统计 + 趋势
+        if (umami?.enable) {
+          const wait = setInterval(async () => {
+            if (typeof window.fetchUmamiStats !== "function" || typeof window.fetchUmamiMetrics !== "function") return;
+            clearInterval(wait);
+            try {
+              const totals = await window.fetchUmamiStats(umami.baseUrl, umami.shareId, {
+                timezone: umami.timezone,
+              });
+              const valueOf = (v) => (typeof v === "object" ? v?.value : v) || 0;
+              setText("stat-views", valueOf(totals.pageviews));
+              setText("stat-visitors", valueOf(totals.visitors));
+              setText("stat-visits", valueOf(totals.visits));
+              const bounces = valueOf(totals.bounces);
+              const visits = valueOf(totals.visits);
+              setText("stat-bounces", visits ? `${Math.round((bounces / visits) * 100)}%` : "0%");
+              setText("stats-range", "（全部时间）");
+
+              // 热门页面
+              const metrics = await window.fetchUmamiMetrics(umami.baseUrl, umami.shareId, {
+                type: "path",
+                limit: 10,
+                timezone: umami.timezone,
+              });
+              const pathsEl = document.getElementById("stats-paths");
+              if (pathsEl && Array.isArray(metrics) && metrics.length) {
+                pathsEl.innerHTML = "";
+                metrics.forEach((row, index) => {
+                  const li = document.createElement("li");
+                  li.className = "flex items-center gap-2";
+                  const no = document.createElement("span");
+                  no.className =
+                    "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-base-200/70 text-[11px] font-bold text-base-content/60";
+                  no.textContent = String(index + 1);
+                  const a = document.createElement("a");
+                  a.href = row.x;
+                  a.className = "truncate text-base-content/75 hover:text-primary";
+                  a.textContent = row.x;
+                  const count = document.createElement("span");
+                  count.className = "ml-auto shrink-0 text-xs text-base-content/40";
+                  count.textContent = row.y;
+                  li.append(no, a, count);
+                  pathsEl.appendChild(li);
+                });
+              }
+
+              // 趋势图（最近 30 天）——用 pageviews 端点
+              if (typeof window.fetchUmamiPageviews === "function") {
+                const series = await window.fetchUmamiPageviews(umami.baseUrl, umami.shareId, {
+                  unit: "day",
+                  timezone: umami.timezone,
+                });
+                const days = (series?.pageviews || []).slice(-30);
+                const chart = document.getElementById("stats-chart");
+                if (chart && days.length) {
+                  chart.innerHTML = "";
+                  const max = Math.max(...days.map((d) => d.y), 1);
+                  days.forEach((point) => {
+                    const slot = document.createElement("div");
+                    slot.className = "flex h-full flex-1 items-end justify-center";
+                    const bar = document.createElement("div");
+                    bar.className = "w-full max-w-6 rounded-t-md bg-primary/70 transition-all hover:bg-primary";
+                    bar.style.height = `${Math.max(4, Math.round((point.y / max) * 100))}%`;
+                    bar.title = `${point.x.slice(0, 10)}：${point.y} 次`;
+                    slot.appendChild(bar);
+                    chart.appendChild(slot);
+                  });
+                  const total = days.reduce((sum, d) => sum + d.y, 0);
+                  setText("stats-range", `（最近 ${days.length} 天共 ${total} 次访问）`);
+                }
+              }
+            } catch (error) {
+              console.warn("[stats] umami 数据加载失败", error);
+            }
+          }, 150);
+        }
+
+        // 评论数
+        if (cfg.twikooEnvId && Array.isArray(cfg.postUrls) && cfg.postUrls.length) {
+          fetch(cfg.twikooEnvId, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ event: "GET_COMMENTS_COUNT", urls: cfg.postUrls }),
+          })
+            .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+            .then((data) => {
+              const total = (data?.data || []).reduce((sum, item) => sum + (item.count || 0), 0);
+              setText("stat-comments", String(total));
+            })
+            .catch(() => setText("stat-comments", "—"));
+        } else {
+          setText("stat-comments", "0");
+        }
+
+        // GitHub
+        if (cfg.githubOwner) {
+          fetch(`https://api.github.com/users/${cfg.githubOwner}`, {
+            headers: { Accept: "application/vnd.github+json" },
+          })
+            .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+            .then((user) => {
+              setText("gh-repos", String(user.public_repos ?? 0));
+              setText("gh-followers", String(user.followers ?? 0));
+              return fetch(
+                `https://api.github.com/users/${cfg.githubOwner}/repos?per_page=100&sort=updated`,
+                { headers: { Accept: "application/vnd.github+json" } },
+              );
+            })
+            .then((res) => (res.ok ? res.json() : []))
+            .then((repos) => {
+              const stars = (Array.isArray(repos) ? repos : []).reduce(
+                (sum, repo) => sum + (repo.stargazers_count || 0),
+                0,
+              );
+              setText("gh-stars", String(stars));
+            })
+            .catch(() => {
+              setText("gh-repos", "—");
+              setText("gh-followers", "—");
+              setText("gh-stars", "—");
+            });
+        }
+      };
+
+      init();
+      document.addEventListener("astro:page-load", init);
+    })();
+  </script>
+</BaseLayout>
