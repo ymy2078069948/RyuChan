@@ -99,4 +99,45 @@
     return doFetch();
   };
 
+  /**
+   * 获取 Umami 维度指标（如热门页面 /metrics?type=path）
+   * @param {string} baseUrl
+   * @param {string} shareId
+   * @param {object} queryParams
+   * @returns {Promise<Array<{x: string, y: number}>>}
+   */
+  global.fetchUmamiMetrics = async function (baseUrl, shareId, queryParams) {
+    async function doFetch(isRetry = false) {
+      const { websiteId, token } = await global.getUmamiShareData(baseUrl, shareId);
+      const now = Date.now();
+      const params = new URLSearchParams({
+        startAt: 0,
+        endAt: now,
+        timezone: 'Asia/Shanghai',
+        limit: 20,
+        ...queryParams
+      });
+
+      const metricsUrl = `${baseUrl}/api/websites/${websiteId}/metrics?${params.toString()}`;
+      const res = await fetch(metricsUrl, {
+        headers: {
+          'x-umami-share-token': token,
+          'x-umami-share-context': '1'
+        }
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 && !isRetry) {
+          global.clearUmamiShareCache(shareId);
+          return doFetch(true);
+        }
+        throw new Error('获取统计指标失败: ' + res.status);
+      }
+
+      return res.json();
+    }
+
+    return doFetch();
+  };
+
 })(window);

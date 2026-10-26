@@ -1,7 +1,6 @@
 'use client'
 
 import { useAuthStore } from '@/components/write/hooks/use-auth'
-import { GITHUB_CONFIG } from '@/consts'
 import { KJUR, KEYUTIL } from 'jsrsasign'
 import { toast } from 'sonner'
 

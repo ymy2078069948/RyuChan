@@ -1,0 +1,50 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+const updated = "2026-10-26";
+---
+
+<BaseLayout
+  title="使用条款"
+  isIndexed={false}
+  showSidebar={false}
+  showBanner={false}
+  showTOC={false}
+>
+  <div class="card-base p-6 md:p-10">
+    <article class="prose prose-sm md:prose-base max-w-none">
+      <h1>使用条款</h1>
+      <p class="text-sm opacity-60">最后更新：{updated}</p>
+
+      <p>欢迎访问本站。使用本站即表示你同意以下条款。</p>
+
+      <h2>一、内容版权</h2>
+      <p>
+        除特别注明外，本站原创文章采用
+        <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank" rel="noopener">CC BY-NC-SA 4.0</a>
+        许可协议：转载请注明作者与原文链接，不得用于商业用途，演绎作品需以相同协议共享。
+      </p>
+      <p>转载或引用的第三方内容版权归原作者所有。</p>
+
+      <h2>二、评论规范</h2>
+      <ul>
+        <li>请文明发言，不要发布广告、垃圾信息、人身攻击或违法内容；</li>
+        <li>评论仅代表发布者个人观点，不代表本站立场；</li>
+        <li>本站保留删除不当评论、限制访问的权利。</li>
+      </ul>
+
+      <h2>三、免责声明</h2>
+      <p>
+        本站内容仅用于学习与分享，我会尽力保证准确性，但不对因使用本站内容造成的任何直接或间接损失承担责任。技术类文章中的操作请自行评估风险。
+      </p>
+
+      <h2>四、外部链接</h2>
+      <p>
+        本站可能包含指向第三方网站的链接。第三方网站的内容与隐私政策由其自行负责，本站不承担相关责任。
+      </p>
+
+      <h2>五、条款更新</h2>
+      <p>本条款可能随站点功能调整而更新，更新后会修改本页顶部的日期。</p>
+    </article>
+  </div>
+</BaseLayout>

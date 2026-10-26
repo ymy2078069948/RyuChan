@@ -1,0 +1,74 @@
+---
+import { getCollection } from "astro:content";
+import { Icon } from "astro-icon/components";
+import dayjs from "@utils/dayjs";
+import { DATE_FORMAT, SITE_START_DATE } from "@config";
+
+const posts = (await getCollection("blog")).filter((post) => !post.data.draft);
+const postCount = posts.length;
+
+const categories = new Set<string>();
+const tags = new Set<string>();
+let totalChars = 0;
+let firstDate = Number.POSITIVE_INFINITY;
+let lastUpdated = 0;
+
+for (const post of posts) {
+  for (const category of post.data.categories || []) categories.add(category);
+  for (const tag of post.data.tags || []) tags.add(tag);
+  totalChars += (post.body || "").replace(/\s+/g, "").length;
+  const created = new Date(post.data.pubDate).getTime();
+  if (created < firstDate) firstDate = created;
+  const updated = new Date(post.data.updated ?? post.data.pubDate).getTime();
+  if (updated > lastUpdated) lastUpdated = updated;
+}
+
+const now = Date.now();
+const configuredStart = SITE_START_DATE ? new Date(SITE_START_DATE).getTime() : Number.NaN;
+const startTime = Number.isFinite(configuredStart) ? configuredStart : firstDate;
+const runningDays = Number.isFinite(startTime)
+  ? Math.max(1, Math.ceil((now - startTime) / 86_400_000))
+  : 1;
+const lastUpdatedText = lastUpdated
+  ? dayjs(lastUpdated).format(DATE_FORMAT)
+  : "—";
+const totalWordsText =
+  totalChars >= 10_000
+    ? `${(totalChars / 10_000).toFixed(1)}w`
+    : String(totalChars);
+---
+
+<div class="card-base p-4">
+  <h3 class="mb-3 flex items-center gap-2 text-base font-bold text-base-content">
+    <Icon name="material-symbols:bar-chart-rounded" class="h-4 w-4 text-primary" />
+    <span>站点统计</span>
+  </h3>
+
+  <div class="grid grid-cols-3 gap-2 text-center">
+    <div class="rounded-xl bg-base-200/50 px-1 py-2">
+      <div class="text-[11px] text-base-content/55">文章</div>
+      <div class="text-base font-bold text-primary">{postCount}</div>
+    </div>
+    <div class="rounded-xl bg-base-200/50 px-1 py-2">
+      <div class="text-[11px] text-base-content/55">分类</div>
+      <div class="text-base font-bold text-primary">{categories.size}</div>
+    </div>
+    <div class="rounded-xl bg-base-200/50 px-1 py-2">
+      <div class="text-[11px] text-base-content/55">标签</div>
+      <div class="text-base font-bold text-primary">{tags.size}</div>
+    </div>
+  </div>
+
+  <div class="mt-3 flex items-center justify-between text-xs text-base-content/55">
+    <span>总字数</span>
+    <span class="font-semibold text-base-content/80">{totalWordsText}</span>
+  </div>
+  <div class="mt-1 flex items-center justify-between text-xs text-base-content/55">
+    <span>最后更新</span>
+    <span class="font-semibold text-base-content/80">{lastUpdatedText}</span>
+  </div>
+  <div class="mt-1 flex items-center justify-between text-xs text-base-content/55">
+    <span>运行天数</span>
+    <span class="font-semibold text-base-content/80">{runningDays} 天</span>
+  </div>
+</div>

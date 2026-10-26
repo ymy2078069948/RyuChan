@@ -13,17 +13,24 @@ interface Props {
   showTOC?: boolean;
 }
 
-// Get headings from parent component or page
+// 左栏：文章页把目录放最上面，之后是资料 / 搜索 / 工具条；右栏是站点统计等挂件。
 const { headings = [], showTOC = true } = Astro.props as Props;
+const hasTOC = showTOC && headings.length > 0;
 ---
 
+{
+  hasTOC && (
+    <div class="relative mb-4">
+      <TOCBar headings={headings} showTOC={showTOC} />
+    </div>
+  )
+}
 <div class="relative mb-4">
   <ProfileBar />
 </div>
 <div class="relative mb-4">
   <SearchBar />
 </div>
-<div class="md:sticky md:top-4">
+<div class="relative mb-4">
   <ToolBar />
-  <TOCBar headings={headings} showTOC={showTOC} />
 </div>

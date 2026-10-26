@@ -1,0 +1,56 @@
+---
+import { Icon } from "astro-icon/components";
+
+const { fallback = "世界很大，开心第一。" } = Astro.props as { fallback?: string };
+---
+
+<div class="card-base p-4" id="hitokoto-card">
+  <h3 class="mb-3 flex items-center gap-2 text-base font-bold text-base-content">
+    <Icon name="lucide:quote" class="h-4 w-4 text-primary" />
+    <span>一言</span>
+  </h3>
+  <p
+    id="hitokoto-text"
+    class="min-h-[3rem] text-sm leading-relaxed text-base-content/75 transition-opacity"
+  >
+    {fallback}
+  </p>
+  <p id="hitokoto-from" class="mt-2 text-right text-xs text-base-content/45"></p>
+</div>
+
+<script is:inline>
+  (() => {
+    const cacheKey = "ryuchan_hitokoto_v1";
+    const cacheTtl = 10 * 60 * 1000;
+    const textEl = document.getElementById("hitokoto-text");
+    const fromEl = document.getElementById("hitokoto-from");
+    if (!textEl) return;
+
+    const render = (text, from) => {
+      textEl.textContent = text;
+      if (fromEl) fromEl.textContent = from ? `—— ${from}` : "";
+    };
+
+    try {
+      const cached = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (cached && Date.now() - cached.t < cacheTtl) {
+        render(cached.text, cached.from);
+        return;
+      }
+    } catch {}
+
+    fetch("https://v1.hitokoto.cn/?encode=json&max_length=40")
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data) => {
+        const text = data?.hitokoto || textEl.textContent;
+        const from = data?.from_who || data?.from || "";
+        render(text, from);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ t: Date.now(), text, from }));
+        } catch {}
+      })
+      .catch(() => {
+        // 接口不可用时保留服务端 fallback 文案
+      });
+  })();
+</script>

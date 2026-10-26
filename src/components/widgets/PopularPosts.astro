@@ -1,0 +1,120 @@
+---
+import { getCollection } from "astro:content";
+import { Icon } from "astro-icon/components";
+import { umamiConfig } from "@config";
+
+const posts = (await getCollection("blog"))
+  .filter((post) => !post.data.draft)
+  .sort(
+    (a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime(),
+  );
+
+const fallbackPosts = posts.slice(0, 5).map((post) => ({
+  title: post.data.title,
+  url: `/blog/${post.slug}/`,
+}));
+
+const postMap: Record<string, string> = {};
+for (const post of posts) {
+  postMap[`/blog/${post.slug}/`] = post.data.title;
+}
+---
+
+<div class="card-base p-4" id="popular-posts-card">
+  <h3 class="mb-3 flex items-center gap-2 text-base font-bold text-base-content">
+    <Icon name="lucide:flame" class="h-4 w-4 text-primary" />
+    <span>热门文章</span>
+  </h3>
+
+  <ol id="popular-posts-list" class="space-y-2">
+    {
+      fallbackPosts.map((post, index) => (
+        <li class="flex items-start gap-2">
+          <span class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-base-200/70 text-[11px] font-bold text-base-content/60">
+            {index + 1}
+          </span>
+          <a href={post.url} class="line-clamp-2 text-sm leading-snug text-base-content/75 transition-colors hover:text-primary">
+            {post.title}
+          </a>
+        </li>
+      ))
+    }
+  </ol>
+</div>
+
+<script is:inline define:vars={{ fallbackPosts, postMap, umamiConfig }}>
+  (() => {
+    if (!umamiConfig?.enable) return;
+
+    const CACHE_KEY = "ryuchan_popular_posts_v1";
+    const CACHE_TTL = 5 * 60 * 1000;
+    const listEl = document.getElementById("popular-posts-list");
+    if (!listEl) return;
+
+    const render = (items) => {
+      if (!items.length) return;
+      listEl.innerHTML = "";
+      items.forEach((item, index) => {
+        const li = document.createElement("li");
+        li.className = "flex items-start gap-2";
+
+        const no = document.createElement("span");
+        no.className =
+          "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-base-200/70 text-[11px] font-bold text-base-content/60";
+        no.textContent = String(index + 1);
+
+        const a = document.createElement("a");
+        a.href = item.url;
+        a.className =
+          "line-clamp-2 text-sm leading-snug text-base-content/75 transition-colors hover:text-primary";
+        a.textContent = item.title;
+
+        li.appendChild(no);
+        li.appendChild(a);
+        if (item.views) {
+          const views = document.createElement("span");
+          views.className = "ml-auto shrink-0 text-[11px] text-base-content/40";
+          views.textContent = item.views;
+          li.appendChild(views);
+        }
+        listEl.appendChild(li);
+      });
+    };
+
+    try {
+      const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
+      if (cached && Date.now() - cached.t < CACHE_TTL) {
+        render(cached.items);
+        return;
+      }
+    } catch {}
+
+    const start = Date.now();
+    const timer = setInterval(async () => {
+      if (typeof window.fetchUmamiMetrics !== "function") {
+        if (Date.now() - start > 10000) clearInterval(timer);
+        return;
+      }
+      clearInterval(timer);
+      try {
+        const metrics = await window.fetchUmamiMetrics(
+          umamiConfig.baseUrl,
+          umamiConfig.shareId,
+          { type: "path", limit: 50, timezone: umamiConfig.timezone },
+        );
+        const items = (Array.isArray(metrics) ? metrics : [])
+          .filter((row) => postMap[row.x])
+          .map((row) => ({ title: postMap[row.x], url: row.x, views: row.y }))
+          .sort((a, b) => b.views - a.views)
+          .slice(0, 6);
+        if (!items.length) return;
+        render(items);
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), items }));
+        } catch {}
+      } catch (error) {
+        console.warn("[popular-posts] 获取热门文章失败，保留默认列表", error);
+      }
+    }, 100);
+  })();
+</script>

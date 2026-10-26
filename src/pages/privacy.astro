@@ -1,0 +1,65 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+const updated = "2026-10-26";
+---
+
+<BaseLayout
+  title="隐私政策"
+  isIndexed={false}
+  showSidebar={false}
+  showBanner={false}
+  showTOC={false}
+>
+  <div class="card-base p-6 md:p-10">
+    <article class="prose prose-sm md:prose-base max-w-none">
+      <h1>隐私政策</h1>
+      <p class="text-sm opacity-60">最后更新：{updated}</p>
+
+      <p>
+        本站（luokk.top）是一个个人博客。本页说明本站会收集哪些信息、如何使用，以及你可以如何管理这些信息。
+      </p>
+
+      <h2>一、我们收集的信息</h2>
+      <ul>
+        <li>
+          <strong>评论信息</strong>：当你使用评论功能时，评论系统会保存你填写的昵称、邮箱（不会公开展示）、网站地址和评论内容，用于展示评论和回复通知。
+        </li>
+        <li>
+          <strong>访问统计</strong>：本站使用自托管的 Umami 进行匿名访问统计，记录页面访问量、访客数、访问路径、来源和大致地区。这些数据不包含你的姓名或精确位置，用于了解内容受欢迎程度。
+        </li>
+        <li>
+          <strong>本地偏好</strong>：浏览器 localStorage 会保存主题、视图模式、背景等偏好设置，仅存储在你的设备上，不上传到服务器。
+        </li>
+      </ul>
+
+      <h2>二、信息的使用方式</h2>
+      <ul>
+        <li>展示评论、回复通知与防止垃圾评论；</li>
+        <li>统计访问情况，改进内容与体验；</li>
+        <li>不会出售、出租或向无关第三方共享你的个人信息。</li>
+      </ul>
+
+      <h2>三、第三方服务</h2>
+      <ul>
+        <li><strong>Umami</strong>（自托管统计服务）用于访问统计；</li>
+        <li><strong>Twikoo</strong>（自托管评论服务）用于评论；</li>
+        <li><strong>GitHub</strong> 用于存储本站内容与代码；</li>
+        <li>一言、天气等公开 API（如启用）可能收到你的浏览器请求，但不包含个人身份信息。</li>
+      </ul>
+
+      <h2>四、Cookie 与本地存储</h2>
+      <p>
+        本站本身不使用广告或追踪 Cookie。评论服务可能使用必要的 Cookie 维持登录状态；主题、视图等偏好保存在 localStorage 中，你可以随时清除浏览器数据删除它们。
+      </p>
+
+      <h2>五、数据保留与删除</h2>
+      <p>
+        评论会一直保留，除非你要求删除。你可以通过评论区留言或在本站 GitHub 仓库提交 issue 的方式，申请删除你的评论或统计相关数据。
+      </p>
+
+      <h2>六、政策更新</h2>
+      <p>本政策可能随功能调整而更新，更新后会修改本页顶部的日期。</p>
+    </article>
+  </div>
+</BaseLayout>

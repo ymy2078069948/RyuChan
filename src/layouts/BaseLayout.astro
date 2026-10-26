@@ -6,6 +6,7 @@ import {
   SITE_LANGUAGE,
   SITE_THEME,
   umamiConfig,
+  commentsConfig,
   SITE_PAGES,
 } from "@config";
 import { ClientRouter } from "astro:transitions";
@@ -13,10 +14,12 @@ import ElementCrossing from "astro-vtbot/components/ElementCrossing.astro";
 import PointerOnNavigation from "astro-vtbot/components/PointerOnNavigation.astro";
 import Header from "@components/Header.astro";
 import Sidebar from "@components/Sidebar.astro";
+import RightWidgets from "@components/RightWidgets.astro";
 import Footer from "@components/Footer.astro";
 import Navbar from "@components/Navbar.astro";
 import Banner from "@components/Banner.astro";
 import MobileTOC from "@components/widgets/MobileTOC.astro";
+import ScrollToTop from "@components/widgets/ScrollToTop.astro";
 import GlobalAudio from "@components/widgets/GlobalAudio.astro";
 
 const {
@@ -36,6 +39,12 @@ const currentPath = Astro.url.pathname.replace("/", "") || "home";
 const pageConfig = SITE_PAGES?.[currentPath];
 const bannerTitle = pageConfig?.title || title || "";
 const bannerSubtitle = pageConfig?.subtitle || "";
+
+// Twikoo 评论数（列表页批量查询）
+const twikooEnvId =
+  commentsConfig?.enable && commentsConfig.type === "twikoo"
+    ? commentsConfig.twikoo?.envId ?? null
+    : null;
 ---
 
 <!doctype html>
@@ -71,7 +80,7 @@ const bannerSubtitle = pageConfig?.subtitle || "";
     }
     {
       umamiConfig.enable && (
-        <script is:inline defer src="/js/umami-share.js?v=2"></script>
+        <script is:inline defer src="/js/umami-share.js?v=3"></script>
       )
     }
 
@@ -141,10 +150,14 @@ const bannerSubtitle = pageConfig?.subtitle || "";
     <Navbar />
     <div class={`max-w-blog mx-auto w-full flex-grow page-content-animate ${showBanner ? 'mt-8' : 'mt-24'}`}>
       <div
-        class={`grid grid-cols-1 ${showSidebar ? "md:grid-cols-5 lg:grid-cols-4" : ""} gap-4 px-4 pb-4 h-full`}
+        class={`grid grid-cols-1 ${
+          showSidebar
+            ? "md:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[13rem_minmax(0,1fr)_16rem]"
+            : ""
+        } gap-4 px-4 pb-4 h-full`}
       >
         <main
-          class={`col-span-1 ${showSidebar ? "md:col-span-4 lg:col-span-3" : "w-full"} bg-transparent order-1 md:order-2 flex flex-col gap-4`}
+          class={`col-span-1 min-w-0 ${showSidebar ? "" : "w-full"} bg-transparent order-1 md:order-2 flex flex-col gap-4`}
         >
           <div class="flex-grow flex flex-col gap-4">
             <slot />
@@ -153,9 +166,16 @@ const bannerSubtitle = pageConfig?.subtitle || "";
         </main>
         {
           showSidebar && (
-            <aside class="col-span-1 bg-transparent order-2 md:order-1 md:top-4 hidden md:block">
+            <aside class="col-span-1 hidden self-start bg-transparent md:sticky md:top-4 md:order-1 md:block">
               <Sidebar headings={headings} showTOC={showTOC} />
               <slot name="sidebar" />
+            </aside>
+          )
+        }
+        {
+          showSidebar && (
+            <aside class="col-span-1 hidden self-start bg-transparent xl:sticky xl:top-4 xl:order-3 xl:block">
+              <RightWidgets />
             </aside>
           )
         }
@@ -174,8 +194,48 @@ const bannerSubtitle = pageConfig?.subtitle || "";
 
     <MobileTOC headings={headings} showTOC={showTOC} />
     <GlobalAudio />
+    <ScrollToTop />
 
     <script src="/js/runtime-config.js" defer is:inline></script>
+
+    <!-- 评论数：按需批量查询 Twikoo，失败时保持占位符 -->
+    <script define:vars={{ twikooEnvId }} is:inline>
+      (() => {
+        if (!twikooEnvId) return;
+
+        const loadCounts = () => {
+          const els = Array.from(document.querySelectorAll("[data-comment-url]")).filter(
+            (el) => el.dataset.commentLoaded !== "1",
+          );
+          if (!els.length) return;
+
+          const urls = Array.from(new Set(els.map((el) => el.dataset.commentUrl))).filter(Boolean);
+          if (!urls.length) return;
+
+          fetch(twikooEnvId, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ event: "GET_COMMENTS_COUNT", urls }),
+          })
+            .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+            .then((data) => {
+              const counts = {};
+              for (const item of data?.data || []) counts[item.url] = item.count;
+              for (const el of els) {
+                const count = counts[el.dataset.commentUrl];
+                el.textContent = typeof count === "number" ? String(count) : "0";
+                el.dataset.commentLoaded = "1";
+              }
+            })
+            .catch((error) => {
+              console.warn("[comments] 获取评论数失败", error);
+            });
+        };
+
+        loadCounts();
+        document.addEventListener("astro:page-load", loadCounts);
+      })();
+    </script>
 
     <!-- 其余脚本保持不变 -->
     <script define:vars={{ SITE_THEME }} is:inline>

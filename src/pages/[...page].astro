@@ -127,7 +127,30 @@ const pageLinks = generatePageLinks(totalPages);
   </CardGroup>
 
   <!-- Blog Post List -->
-  <CardGroup cols="1">
+  <div class="flex items-center justify-between gap-2">
+    <h2 class="text-lg font-bold text-base-content">最新文章</h2>
+    <div class="join" role="group" aria-label="文章视图切换">
+      <button
+        type="button"
+        class="btn btn-xs join-item btn-primary"
+        data-post-view-btn="list"
+        aria-label="列表视图"
+        title="列表视图"
+      >
+        <Icon name="lucide:list" class="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        class="btn btn-xs join-item btn-ghost"
+        data-post-view-btn="grid"
+        aria-label="网格视图"
+        title="网格视图"
+      >
+        <Icon name="lucide:layout-grid" class="h-3.5 w-3.5" />
+      </button>
+    </div>
+  </div>
+  <div id="post-list" class="post-list" data-post-view="list">
     {
       page.data.map((blog: Post) => (
         <PostCard
@@ -144,6 +167,42 @@ const pageLinks = generatePageLinks(totalPages);
         />
       ))
     }
-  </CardGroup>
+  </div>
+
+  <script is:inline>
+    (() => {
+      const STORAGE_KEY = "ryuchan_post_view";
+      const init = () => {
+        const list = document.getElementById("post-list");
+        if (!list) return;
+        const buttons = Array.from(document.querySelectorAll("[data-post-view-btn]"));
+        const apply = (view) => {
+          list.dataset.postView = view;
+          buttons.forEach((btn) => {
+            const active = btn.dataset.postViewBtn === view;
+            btn.classList.toggle("btn-primary", active);
+            btn.classList.toggle("btn-ghost", !active);
+          });
+        };
+        buttons.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const view = btn.dataset.postViewBtn === "grid" ? "grid" : "list";
+            apply(view);
+            try {
+              localStorage.setItem(STORAGE_KEY, view);
+            } catch {}
+          });
+        });
+        let saved = "list";
+        try {
+          saved = localStorage.getItem(STORAGE_KEY) || "list";
+        } catch {}
+        apply(saved === "grid" ? "grid" : "list");
+      };
+      init();
+      document.addEventListener("astro:page-load", init);
+    })();
+  </script>
+
   <Pagination page={page} totalPages={totalPages} pageLinks={pageLinks} baseUrl={``} />
 </BaseLayout>

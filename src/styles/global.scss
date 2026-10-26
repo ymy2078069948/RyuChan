@@ -4,8 +4,41 @@
 @tailwind utilities;
 
 .max-w-blog {
-  max-width: 72rem;
+  max-width: 78rem;
   /* 默认90% - 适合小屏幕 */
+}
+
+/* 首页文章列表：列表 / 网格视图切换 */
+.post-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.post-list[data-post-view="grid"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.post-list[data-post-view="grid"] > * {
+  height: 100%;
+}
+
+.post-list[data-post-view="grid"] .post-card-horizontal {
+  display: none !important;
+}
+
+.post-list[data-post-view="grid"] .post-card-vertical {
+  display: flex !important;
+  height: 100%;
+}
+
+@media (max-width: 767px) {
+  .post-list[data-post-view="grid"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .prose {

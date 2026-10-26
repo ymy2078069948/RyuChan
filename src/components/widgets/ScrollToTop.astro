@@ -2,43 +2,81 @@
 import { Icon } from "astro-icon/components";
 ---
 
-<button
-  id="scroll-to-top"
-  aria-label="Scroll to top"
-  class="btn btn-circle btn-md fixed bottom-6 right-6 z-50 bg-base-100 shadow-lg opacity-0 invisible transition-all hover:scale-110"
+<div
+  id="floating-actions"
+  class="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col gap-2"
 >
-  <Icon name="material-symbols:arrow-upward-rounded" class="h-5 w-5" />
-</button>
+  <a
+    id="back-to-home"
+    href="/"
+    aria-label="返回首页"
+    title="返回首页"
+    class="pointer-events-auto btn btn-circle btn-md invisible bg-base-100 opacity-0 shadow-lg transition-all hover:scale-110"
+  >
+    <Icon name="material-symbols:home-outline-rounded" class="h-5 w-5" />
+  </a>
 
-<script>
-  document.addEventListener("astro:page-load", () => {
-    const scrollButton = document.getElementById("scroll-to-top");
+  <a
+    id="back-to-comment"
+    href="#comments"
+    aria-label="跳转到评论"
+    title="跳转到评论"
+    class="pointer-events-auto btn btn-circle btn-md hidden bg-base-100 shadow-lg transition-all hover:scale-110"
+  >
+    <Icon name="material-symbols:chat-bubble-outline-rounded" class="h-5 w-5" />
+  </a>
 
-    if (scrollButton) {
-      // Show button when user scrolls down 300px
-      const toggleVisibility = () => {
-        if (window.scrollY > 300) {
-          scrollButton.classList.remove("opacity-0", "invisible");
-          scrollButton.classList.add("opacity-100", "visible");
-        } else {
-          scrollButton.classList.remove("opacity-100", "visible");
-          scrollButton.classList.add("opacity-0", "invisible");
-        }
+  <button
+    id="scroll-to-top"
+    type="button"
+    aria-label="回到顶部"
+    title="回到顶部"
+    class="pointer-events-auto btn btn-circle btn-md invisible bg-base-100 opacity-0 shadow-lg transition-all hover:scale-110"
+  >
+    <Icon name="material-symbols:arrow-upward-rounded" class="h-5 w-5" />
+  </button>
+</div>
+
+<script is:inline>
+  (() => {
+    const init = () => {
+      const topButton = document.getElementById("scroll-to-top");
+      const homeLink = document.getElementById("back-to-home");
+      const commentLink = document.getElementById("back-to-comment");
+      if (!topButton || topButton.dataset.bound === "1") return;
+      topButton.dataset.bound = "1";
+
+      const commentSection = document.getElementById("comments");
+      if (commentSection && commentLink) {
+        commentLink.classList.remove("hidden");
+        commentLink.addEventListener("click", (event) => {
+          event.preventDefault();
+          commentSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
+
+      const setVisible = (el, visible) => {
+        if (!el) return;
+        el.classList.toggle("invisible", !visible);
+        el.classList.toggle("opacity-0", !visible);
+        el.classList.toggle("opacity-100", visible);
       };
 
-      // Initial check
+      const toggleVisibility = () => {
+        const visible = window.scrollY > 300;
+        setVisible(topButton, visible);
+        setVisible(homeLink, visible);
+      };
+
       toggleVisibility();
+      window.addEventListener("scroll", toggleVisibility, { passive: true });
 
-      // Add scroll event listener
-      window.addEventListener("scroll", toggleVisibility);
-
-      // Scroll to top with smooth animation
-      scrollButton.addEventListener("click", () => {
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth",
-        });
+      topButton.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
-    }
-  });
+    };
+
+    init();
+    document.addEventListener("astro:page-load", init);
+  })();
 </script>

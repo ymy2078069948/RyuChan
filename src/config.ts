@@ -25,6 +25,11 @@ export const SITE_LANGUAGE = config.site.language;
 export const SITE_FAVICON = config.site.favicon || '/favicon.ico';
 export const SITE_THEME = config.site.theme;
 export const DATE_FORMAT = config.site.date_format;
+// 建站日期（用于“运行天数”统计），可在站点配置里填写 start_date
+export const SITE_START_DATE =
+  (config.site as unknown as Record<string, string>).start_date ||
+  (config.site as unknown as Record<string, string>).startDate ||
+  "";
 
 // Banner 配置 - 使用安全访问  
 export const BANNER_CONFIG = config.site.banner;
