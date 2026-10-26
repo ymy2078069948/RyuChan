@@ -88,6 +88,17 @@ const needsKatex = blog.body?.includes("$$") ?? false;
       <PostFilter categories={blog.data.categories} tags={blog.data.tags} />
     </div>
 
+    <!-- 文章摘要（与参考站 AI 摘要卡片同一位置/样式） -->
+    {blog.data.description && (
+      <div class="rounded-2xl border border-primary/15 bg-primary/5 p-4">
+        <div class="mb-1 flex items-center gap-2 text-sm font-bold text-primary">
+          <Icon name="lucide:sparkles" class="h-4 w-4" />
+          <span>摘要</span>
+        </div>
+        <p class="text-sm leading-relaxed text-base-content/75">{blog.data.description}</p>
+      </div>
+    )}
+
     <!-- Article Content -->
     <div class="mt-8">
       <div

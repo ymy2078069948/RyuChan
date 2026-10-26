@@ -1,13 +1,18 @@
 ---
+import TOCBar from "./sidebar/TOCBar.astro";
 import SiteStats from "./widgets/SiteStats.astro";
-import PopularPosts from "./widgets/PopularPosts.astro";
 import Hitokoto from "./widgets/Hitokoto.astro";
 import Weather from "./widgets/Weather.astro";
+
+const { headings = [], showTOC = false } = Astro.props as {
+  headings?: Array<{ depth: number; slug: string; text: string }>;
+  showTOC?: boolean;
+};
 ---
 
 <div class="flex flex-col gap-4">
+  {showTOC && headings.length > 0 && <TOCBar headings={headings} showTOC={showTOC} />}
   <SiteStats />
-  <PopularPosts />
   <Hitokoto />
   <Weather />
 </div>

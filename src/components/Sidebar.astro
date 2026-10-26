@@ -1,36 +1,11 @@
 ---
 import ProfileBar from "./sidebar/ProfileBar.astro";
-import ToolBar from "./sidebar/ToolBar.astro";
-import TOCBar from "./sidebar/TOCBar.astro";
-import SearchBar from "./sidebar/SearchBar.astro";
-
-interface Props {
-  headings?: Array<{
-    depth: number;
-    slug: string;
-    text: string;
-  }>;
-  showTOC?: boolean;
-}
-
-// 左栏：文章页把目录放最上面，之后是资料 / 搜索 / 工具条；右栏是站点统计等挂件。
-const { headings = [], showTOC = true } = Astro.props as Props;
-const hasTOC = showTOC && headings.length > 0;
+import PopularPosts from "./widgets/PopularPosts.astro";
 ---
 
-{
-  hasTOC && (
-    <div class="relative mb-4">
-      <TOCBar headings={headings} showTOC={showTOC} />
-    </div>
-  )
-}
 <div class="relative mb-4">
   <ProfileBar />
 </div>
-<div class="relative mb-4">
-  <SearchBar />
-</div>
-<div class="relative mb-4">
-  <ToolBar />
+<div class="relative">
+  <PopularPosts />
 </div>
