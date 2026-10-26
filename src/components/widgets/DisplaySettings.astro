@@ -1,0 +1,279 @@
+---
+import { Icon } from "astro-icon/components";
+
+const themes = [
+  { name: "garden", color: "#fe0075" },
+  { name: "dracula", color: "#ff79c6" },
+  { name: "cupcake", color: "#65c3c8" },
+  { name: "bumblebee", color: "#e0a82e" },
+  { name: "emerald", color: "#66cc8a" },
+  { name: "corporate", color: "#4b6bfb" },
+  { name: "synthwave", color: "#e779c1" },
+  { name: "retro", color: "#ef9995" },
+  { name: "cyberpunk", color: "#ff7598" },
+  { name: "valentine", color: "#e96d7b" },
+  { name: "halloween", color: "#f28c18" },
+  { name: "forest", color: "#1eb854" },
+  { name: "aqua", color: "#09ecf3" },
+  { name: "lofi", color: "#808080" },
+  { name: "pastel", color: "#d1c1d7" },
+  { name: "winter", color: "#047AFF" },
+];
+---
+
+<div id="display-settings-root" class="pointer-events-none fixed bottom-6 left-6 z-50">
+  <button
+    type="button"
+    id="display-settings-toggle"
+    class="pointer-events-auto btn btn-circle btn-md bg-base-100 shadow-lg transition-all hover:scale-110"
+    aria-label="显示设置"
+    title="显示设置"
+  >
+    <Icon name="material-symbols:tune-rounded" class="h-5 w-5" />
+  </button>
+
+  <div
+    id="display-settings-panel"
+    class="pointer-events-auto absolute bottom-14 left-0 hidden w-72 rounded-2xl border border-base-200 bg-base-100/95 p-4 shadow-2xl backdrop-blur-xl"
+  >
+    <div class="mb-3 flex items-center justify-between">
+      <span class="text-sm font-bold text-base-content">显示设置</span>
+      <button type="button" id="display-settings-close" class="btn btn-xs btn-ghost rounded-lg" aria-label="关闭">×</button>
+    </div>
+
+    <div class="mb-3">
+      <div class="mb-1 text-xs font-semibold text-base-content/60">主题</div>
+      <div id="display-themes" class="grid grid-cols-6 gap-1.5">
+        {themes.map((theme) => (
+          <button
+            type="button"
+            class="h-6 w-6 rounded-full border border-base-content/20 transition-transform hover:scale-110"
+            style={`background-color: ${theme.color};`}
+            data-display-theme={theme.name}
+            title={theme.name}
+            aria-label={`主题 ${theme.name}`}
+          ></button>
+        ))}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <div class="mb-1 text-xs font-semibold text-base-content/60">Banner</div>
+      <div class="flex flex-wrap gap-1">
+        {["normal", "fullscreen", "background", "hidden"].map((mode) => (
+          <button type="button" class="btn btn-xs rounded-lg btn-ghost" data-display-banner={mode}>
+            {mode === "normal" ? "普通" : mode === "fullscreen" ? "全屏" : mode === "background" ? "背景" : "隐藏"}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <button type="button" id="display-wallpaper" class="flex w-full items-center justify-between rounded-xl border border-base-200 px-3 py-2 text-sm hover:border-primary/40">
+        <span>壁纸模式</span>
+        <span id="display-wallpaper-state" class="text-xs text-base-content/50">关</span>
+      </button>
+      <button type="button" id="display-motion" class="flex w-full items-center justify-between rounded-xl border border-base-200 px-3 py-2 text-sm hover:border-primary/40">
+        <span>页面动效</span>
+        <span id="display-motion-state" class="text-xs text-base-content/50">开</span>
+      </button>
+      <button type="button" id="display-sakura" class="flex w-full items-center justify-between rounded-xl border border-base-200 px-3 py-2 text-sm hover:border-primary/40">
+        <span>樱花飘落</span>
+        <span id="display-sakura-state" class="text-xs text-base-content/50">关</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<canvas id="sakura-canvas" class="pointer-events-none fixed inset-0 z-40 hidden"></canvas>
+
+<script is:inline>
+  (() => {
+    const THEME_KEY = "theme";
+    const BANNER_KEY = "banner-mode";
+    const MOTION_KEY = "ryuchan_motion";
+    const SAKURA_KEY = "ryuchan_sakura";
+    let sakuraRunning = false;
+    let sakuraFrame = 0;
+
+    const applyMotion = (enabled) => {
+      document.documentElement.dataset.motion = enabled ? "on" : "off";
+      const state = document.getElementById("display-motion-state");
+      if (state) state.textContent = enabled ? "开" : "关";
+    };
+
+    const stopSakura = () => {
+      sakuraRunning = false;
+      cancelAnimationFrame(sakuraFrame);
+      const canvas = document.getElementById("sakura-canvas");
+      if (canvas) {
+        canvas.classList.add("hidden");
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    };
+
+    const startSakura = () => {
+      const canvas = document.getElementById("sakura-canvas");
+      if (!canvas || sakuraRunning) return;
+      sakuraRunning = true;
+      canvas.classList.remove("hidden");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const resize = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      };
+      resize();
+      window.addEventListener("resize", resize);
+
+      const petals = Array.from({ length: 28 }, () => ({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: 4 + Math.random() * 4,
+        vy: 0.5 + Math.random() * 1.2,
+        vx: -0.4 + Math.random() * 0.8,
+        angle: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.03,
+        alpha: 0.4 + Math.random() * 0.5,
+      }));
+
+      const draw = () => {
+        if (!sakuraRunning) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        for (const petal of petals) {
+          petal.x += petal.vx;
+          petal.y += petal.vy;
+          petal.angle += petal.spin;
+          if (petal.y > canvas.height + 10) {
+            petal.y = -10;
+            petal.x = Math.random() * canvas.width;
+          }
+          if (petal.x < -10) petal.x = canvas.width + 10;
+          if (petal.x > canvas.width + 10) petal.x = -10;
+          ctx.save();
+          ctx.translate(petal.x, petal.y);
+          ctx.rotate(petal.angle);
+          ctx.globalAlpha = petal.alpha;
+          ctx.fillStyle = "#ffb7c5";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, petal.r, petal.r * 0.6, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+        sakuraFrame = requestAnimationFrame(draw);
+      };
+      draw();
+    };
+
+    const setSakura = (enabled) => {
+      const state = document.getElementById("display-sakura-state");
+      if (state) state.textContent = enabled ? "开" : "关";
+      try {
+        localStorage.setItem(SAKURA_KEY, enabled ? "on" : "off");
+      } catch {}
+      if (enabled) startSakura();
+      else stopSakura();
+    };
+
+    const applyBanner = (mode) => {
+      document.documentElement.setAttribute("data-banner-mode", mode);
+      try {
+        localStorage.setItem(BANNER_KEY, mode);
+      } catch {}
+      document.querySelectorAll("[data-display-banner]").forEach((button) => {
+        const active = button.dataset.displayBanner === mode;
+        button.classList.toggle("btn-primary", active);
+        button.classList.toggle("btn-ghost", !active);
+      });
+    };
+
+    const applyTheme = (theme) => {
+      const darkThemes = [
+        "dark",
+        "synthwave",
+        "halloween",
+        "forest",
+        "black",
+        "luxury",
+        "dracula",
+        "business",
+        "night",
+        "coffee",
+      ];
+      document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.setAttribute(
+        "data-theme-type",
+        darkThemes.includes(theme) ? "dark" : "light",
+      );
+      try {
+        localStorage.setItem(THEME_KEY, theme);
+      } catch {}
+      document.querySelectorAll("[data-display-theme]").forEach((button) => {
+        button.classList.toggle("ring-2", button.dataset.displayTheme === theme);
+        button.classList.toggle("ring-primary", button.dataset.displayTheme === theme);
+      });
+    };
+
+    const refreshWallpaper = () => {
+      const state = document.getElementById("display-wallpaper-state");
+      const on = new URL(location.href).searchParams.get("wallpaper") === "1";
+      if (state) state.textContent = on ? "开" : "关";
+    };
+
+    const init = () => {
+      const toggle = document.getElementById("display-settings-toggle");
+      const panel = document.getElementById("display-settings-panel");
+      const close = document.getElementById("display-settings-close");
+      if (!toggle || !panel || toggle.dataset.bound === "1") return;
+      toggle.dataset.bound = "1";
+
+      toggle.addEventListener("click", () => panel.classList.toggle("hidden"));
+      close?.addEventListener("click", () => panel.classList.add("hidden"));
+
+      document.querySelectorAll("[data-display-theme]").forEach((button) => {
+        button.addEventListener("click", () => applyTheme(button.dataset.displayTheme));
+      });
+      document.querySelectorAll("[data-display-banner]").forEach((button) => {
+        button.addEventListener("click", () => applyBanner(button.dataset.displayBanner));
+      });
+
+      const currentTheme = document.documentElement.getAttribute("data-theme") || localStorage.getItem(THEME_KEY) || "garden";
+      document.querySelectorAll("[data-display-theme]").forEach((button) => {
+        const active = button.dataset.displayTheme === currentTheme;
+        button.classList.toggle("ring-2", active);
+        button.classList.toggle("ring-primary", active);
+      });
+
+      const currentBanner = document.documentElement.getAttribute("data-banner-mode") || localStorage.getItem(BANNER_KEY) || "normal";
+      applyBanner(currentBanner);
+
+      const motion = localStorage.getItem(MOTION_KEY) !== "off";
+      applyMotion(motion);
+      document.getElementById("display-motion")?.addEventListener("click", () => {
+        const enabled = document.documentElement.dataset.motion === "off";
+        applyMotion(enabled);
+        try {
+          localStorage.setItem(MOTION_KEY, enabled ? "on" : "off");
+        } catch {}
+      });
+
+      setSakura(localStorage.getItem(SAKURA_KEY) === "on");
+      document.getElementById("display-sakura")?.addEventListener("click", () => {
+        setSakura(localStorage.getItem(SAKURA_KEY) !== "on");
+      });
+
+      refreshWallpaper();
+      document.getElementById("display-wallpaper")?.addEventListener("click", () => {
+        const url = new URL(location.href);
+        if (url.searchParams.get("wallpaper") === "1") url.searchParams.delete("wallpaper");
+        else url.searchParams.set("wallpaper", "1");
+        location.href = url.toString();
+      });
+    };
+
+    init();
+    document.addEventListener("astro:page-load", init);
+  })();
+</script>

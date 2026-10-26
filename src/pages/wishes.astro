@@ -1,0 +1,28 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import CommentsSection from "@/components/comments/CommentsSection.astro";
+import { Icon } from "astro-icon/components";
+---
+
+<BaseLayout title="心愿墙" isIndexed={true}>
+  <div class="card-base p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="flex items-center gap-2 text-2xl font-bold text-base-content md:text-3xl">
+          <Icon name="material-symbols:sticky-note-2-outline-rounded" class="h-7 w-7 text-primary" />
+          <span>心愿墙</span>
+        </h1>
+        <p class="mt-1 text-sm text-base-content/60">
+          写下你的心愿、打卡或想说的话，它会贴在墙上（最多 200 字）。
+        </p>
+      </div>
+      <a href="#comments" class="btn btn-sm btn-primary rounded-xl px-4 font-semibold shadow-lg shadow-primary/20">
+        <Icon name="lucide:pen-line" class="h-4 w-4" />
+        写下心愿
+      </a>
+    </div>
+  </div>
+
+  <!-- 心愿以评论形式保存并展示；样式保持评论组件原样，功能与参考站一致 -->
+  <CommentsSection title="写下你的心愿" />
+</BaseLayout>

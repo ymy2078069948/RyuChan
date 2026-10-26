@@ -4,12 +4,14 @@ import Giscus from "@components/comments/Giscus.astro";
 import Waline from "@components/comments/Waline.astro";
 import Twikoo from "@components/comments/Twikoo.astro";
 import { commentsConfig } from "@config";
+
+const { title = "Comments" } = Astro.props as { title?: string };
 ---
 
 {
   commentsConfig?.enable && commentsConfig.type === "giscus" && commentsConfig.giscus && (
     <>
-      <h1 class="text-2xl font-bold">Comments</h1>
+      <h1 class="text-2xl font-bold">{title}</h1>
       <MainCard>
         <section class="comments" id="comments">
           <Giscus {...commentsConfig.giscus} />
@@ -21,7 +23,7 @@ import { commentsConfig } from "@config";
 {
   commentsConfig?.enable && commentsConfig.type === "waline" && commentsConfig.waline && (
     <>
-      <h1 class="text-2xl font-bold">Comments</h1>
+      <h1 class="text-2xl font-bold">{title}</h1>
       <MainCard>
         <section class="comments" id="comments">
           <Waline {...commentsConfig.waline} />
@@ -33,7 +35,7 @@ import { commentsConfig } from "@config";
 {
   commentsConfig?.enable && commentsConfig.type === "twikoo" && commentsConfig.twikoo && (
     <>
-      <h1 class="text-2xl font-bold">Comments</h1>
+      <h1 class="text-2xl font-bold">{title}</h1>
       <MainCard>
         <section class="comments" id="comments">
           <Twikoo {...commentsConfig.twikoo} />

@@ -1,0 +1,71 @@
+---
+import { Icon } from "astro-icon/components";
+---
+
+<div class="card-base p-4" id="weather-card">
+  <h3 class="mb-3 flex items-center gap-2 text-base font-bold text-base-content">
+    <Icon name="material-symbols:partly-cloudy-day-outline" class="h-4 w-4 text-primary" />
+    <span>天气</span>
+  </h3>
+  <div id="weather-body" class="text-sm text-base-content/60">加载中…</div>
+</div>
+
+<script is:inline>
+  (() => {
+    const CACHE_KEY = "ryuchan_weather_v1";
+    const CACHE_TTL = 30 * 60 * 1000;
+
+    const render = (data) => {
+      const body = document.getElementById("weather-body");
+      if (!body || !data) return;
+      body.innerHTML = "";
+      const line = document.createElement("div");
+      line.className = "flex items-center justify-between gap-2";
+      const city = document.createElement("span");
+      city.className = "text-sm font-semibold text-base-content/80";
+      city.textContent = data.city || "本地";
+      const temp = document.createElement("span");
+      temp.className = "text-lg font-bold text-primary";
+      temp.textContent = `${data.temp}°C`;
+      line.append(city, temp);
+      const desc = document.createElement("div");
+      desc.className = "mt-1 text-xs text-base-content/55";
+      desc.textContent = `${data.desc} · 湿度 ${data.humidity}%`;
+      body.append(line, desc);
+    };
+
+    const load = () => {
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
+        if (cached && Date.now() - cached.t < CACHE_TTL) {
+          render(cached.data);
+          return;
+        }
+      } catch {}
+
+      fetch("https://wttr.in/?format=j1", { headers: { Accept: "application/json" } })
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+        .then((json) => {
+          const current = json?.current_condition?.[0];
+          const area = json?.nearest_area?.[0];
+          if (!current) throw new Error("no weather data");
+          const data = {
+            city: area?.areaName?.[0]?.value || "",
+            temp: current.temp_C,
+            desc: current.weatherDesc?.[0]?.value || "",
+            humidity: current.humidity,
+          };
+          render(data);
+          try {
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify({ t: Date.now(), data }));
+          } catch {}
+        })
+        .catch(() => {
+          const body = document.getElementById("weather-body");
+          if (body) body.textContent = "天气服务暂不可用";
+        });
+    };
+
+    load();
+  })();
+</script>

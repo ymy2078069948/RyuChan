@@ -20,6 +20,7 @@ import Navbar from "@components/Navbar.astro";
 import Banner from "@components/Banner.astro";
 import MobileTOC from "@components/widgets/MobileTOC.astro";
 import ScrollToTop from "@components/widgets/ScrollToTop.astro";
+import DisplaySettings from "@components/widgets/DisplaySettings.astro";
 import GlobalAudio from "@components/widgets/GlobalAudio.astro";
 
 const {
@@ -195,6 +196,7 @@ const twikooEnvId =
     <MobileTOC headings={headings} showTOC={showTOC} />
     <GlobalAudio />
     <ScrollToTop />
+    <DisplaySettings />
 
     <script src="/js/runtime-config.js" defer is:inline></script>
 

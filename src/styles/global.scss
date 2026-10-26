@@ -41,6 +41,14 @@
   }
 }
 
+/* 显示设置：关闭页面动效 */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
 .prose {
 
   // 只优化链接的上下边距，不影响水平对齐  
