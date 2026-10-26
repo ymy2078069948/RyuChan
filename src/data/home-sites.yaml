@@ -1,0 +1,9 @@
+- name: Umami 统计
+  url: https://umami.luokk.top
+  description: 博客访问量统计后台
+  badge: 自建
+- name: GitHub 主页
+  url: https://github.com/ymy2078069948
+  description: 个人主页与开源项目
+  avatar: https://github.com/ymy2078069948.png
+  badge: GitHub

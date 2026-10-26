@@ -4,6 +4,7 @@ import PostCard from "@components/PostCard.astro";
 import BaseLayout from "@layouts/BaseLayout.astro";
 import Pagination from "@components/widgets/Pagination.astro";
 import CardGroup from "@components/temple/CardGroup.astro";
+import HomeSites from "@components/HomeSites.astro";
 import { Icon } from "astro-icon/components";
 import {
   t,
@@ -121,6 +122,9 @@ const pageLinks = generatePageLinks(totalPages);
       </div>
     </a>
   </CardGroup>
+
+  <!-- 首页站点模块（在线编辑的“我的站点”卡片） -->
+  <HomeSites />
 
   <!-- Blog Post List -->
   <CardGroup cols="1">

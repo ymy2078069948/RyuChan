@@ -1,0 +1,86 @@
+---
+import { Icon } from "astro-icon/components";
+import { loadHomeSites } from "@/lib/load-home-sites";
+
+const sites = loadHomeSites();
+const hasSites = sites.length > 0;
+---
+
+<section class="mt-8 animate-fade-in-up" style="animation-delay: 0.05s;">
+  <div class="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2 class="flex items-center gap-2 text-xl font-bold text-base-content sm:text-2xl">
+        <Icon name="lucide:layout-grid" class="w-6 h-6 text-primary" />
+        <span>我的站点</span>
+      </h2>
+      <p class="mt-1 text-xs text-base-content/60 sm:text-sm">
+        更多作品与站点，点击卡片直达
+      </p>
+    </div>
+    <a
+      href="/sites-edit"
+      class="btn btn-sm btn-primary gap-2 self-start rounded-xl font-semibold shadow-lg shadow-primary/20 sm:self-auto"
+    >
+      <Icon name="lucide:pen-line" class="w-4 h-4" />
+      编辑
+    </a>
+  </div>
+
+  {
+    hasSites ? (
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
+        {sites.map((site) => (
+          <a
+            href={site.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="group block rounded-2xl border border-base-200 bg-base-100 p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-md"
+          >
+            <div class="flex items-start gap-3">
+              <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-base-200/60 ring-2 ring-base-200">
+                {site.avatar ? (
+                  <img
+                    src={site.avatar}
+                    alt={site.name}
+                    class="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Icon name="lucide:globe" class="w-7 h-7 text-base-content/40" />
+                )}
+              </div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <h3 class="truncate text-base font-bold text-base-content">
+                    {site.name}
+                  </h3>
+                  {site.badge && (
+                    <span class="inline-flex shrink-0 items-center rounded border border-primary/20 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      {site.badge}
+                    </span>
+                  )}
+                </div>
+                {site.description && (
+                  <p class="mt-1 line-clamp-2 text-xs leading-relaxed text-base-content/60">
+                    {site.description}
+                  </p>
+                )}
+              </div>
+              <Icon
+                name="lucide:external-link"
+                class="mt-1 w-4 h-4 shrink-0 text-base-content/30 transition-colors group-hover:text-primary"
+              />
+            </div>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <a
+        href="/sites-edit"
+        class="block rounded-2xl border-2 border-dashed border-base-300 bg-base-100/60 p-6 text-center text-sm text-base-content/60 transition-colors hover:border-primary/40 hover:text-primary"
+      >
+        还没有添加站点模块，点这里添加你的第一个模块
+      </a>
+    )
+  }
+</section>

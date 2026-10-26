@@ -1,0 +1,11 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro'
+import HomeSitesEditPage from '@/components/write/HomeSitesEditPage'
+import { loadHomeSites } from '@/lib/load-home-sites'
+
+const sites = loadHomeSites()
+---
+
+<BaseLayout title="首页模块" isIndexed={false} showSidebar={false} showBanner={false}>
+  <HomeSitesEditPage client:only="react" initialSites={sites} />
+</BaseLayout>

@@ -63,13 +63,12 @@
       const { websiteId, token } = await global.getUmamiShareData(baseUrl, shareId);
       const currentTimestamp = Date.now();
       
-      // 构建参数，移除默认的 unit: 'hour'，只在 queryParams 没有指定时使用默认值
+      // 构建参数。注意：新版 umami 的 compare 只接受 'prev' | 'yoy'，
+      // 传 compare=false 会被判定为参数错误（400），因此这里不传 compare。
       const params = new URLSearchParams({
         startAt: 0,
         endAt: currentTimestamp,
-        // unit: 'hour', // 暂时移除，视情况而定
         timezone: 'Asia/Shanghai',
-        compare: false,
         ...queryParams
       });
       
@@ -78,7 +77,9 @@
       
       const res = await fetch(statsUrl, {
         headers: {
-          'x-umami-share-token': token
+          'x-umami-share-token': token,
+          // 新版 umami 要求分享令牌必须带上分享上下文请求头，否则返回 401。
+          'x-umami-share-context': '1'
         }
       });
 
