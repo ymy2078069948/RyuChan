@@ -2,6 +2,8 @@
 
 当前 Nginx 站点目录：`/www/wwwroot/luokk.top`。服务器出站 `github.com:443` 不通，因此**不要**靠服务器 `git pull`。Actions 在 GitHub 托管 Runner 里构建，产物通过 SSH 单向上传到宝塔；服务器不需要 GitHub App PEM 或内容仓 PAT。
 
+> **2026-10 变更**：GitHub 已对公开 fork 仓库禁用 Actions（前端仓 `RyuChan` 是 fork，所有触发都返回 `422 Actions has been disabled for this repository`，permissions API 仍显示 enabled，属 GitHub 侧策略）。构建+发布工作流已迁移到内容仓 `RyuChan-Content/.github/workflows/deploy-baota.yml`，由**内容仓 push 直接触发**（构建时再拉取本仓库源码）。本仓库的 `.github/workflows/deploy-baota.yml` 保留作历史备份，不会再运行。
+
 ## 文件与上线门槛
 
 1. 将 `src/lib/github-client.ts` 的路径编码修复连同 `.github/workflows/deploy-baota.yml` 提交到**前端 GitHub 仓库的 main**。若手头是无 `.git` 的 ZIP 解压目录，需要先在真正的 Git 仓库提交；不要部署旧前端源码。

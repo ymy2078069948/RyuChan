@@ -1,87 +1,11 @@
 'use client'
 
 import { useAuthStore } from '@/components/write/hooks/use-auth'
-import { FRONTEND_REPO, GITHUB_CONFIG } from '@/consts'
+import { GITHUB_CONFIG } from '@/consts'
 import { KJUR, KEYUTIL } from 'jsrsasign'
 import { toast } from 'sonner'
 
 export const GH_API = 'https://api.github.com'
-
-/**
- * 内容写在私有内容仓（RyuChan-Content）里，而线上静态站由前端仓（RyuChan）的
- * GitHub Actions 构建。内容仓的 push 不能触发前端仓的工作流，所以保存成功后
- * 由浏览器用 GitHub App 安装令牌向前端仓发送 repository_dispatch，立即部署。
- */
-const DEPLOY_EVENT_TYPE = 'content-update'
-const FRONTEND_TOKEN_SAFETY_WINDOW_MS = 5 * 60 * 1000
-
-let cachedFrontendToken: { token: string; expiresAt: number } | null = null
-
-function githubHeaders(token: string): HeadersInit {
-	return {
-		Authorization: `Bearer ${token}`,
-		Accept: 'application/vnd.github+json',
-		'X-GitHub-Api-Version': '2022-11-28',
-	}
-}
-
-async function getFrontendInstallationToken(): Promise<string> {
-	if (cachedFrontendToken && cachedFrontendToken.expiresAt - Date.now() > FRONTEND_TOKEN_SAFETY_WINDOW_MS) {
-		return cachedFrontendToken.token
-	}
-
-	const privateKey = useAuthStore.getState().privateKey
-	if (!privateKey) {
-		throw new Error('GitHub App 私钥尚未加载')
-	}
-
-	const jwt = signAppJwt(GITHUB_CONFIG.APP_ID, privateKey)
-	const installationRes = await fetch(`${GH_API}/repos/${GITHUB_CONFIG.OWNER}/${FRONTEND_REPO}/installation`, {
-		headers: githubHeaders(jwt),
-	})
-	if (!installationRes.ok) {
-		throw new Error(`查找前端仓库的 App 安装失败: ${installationRes.status}`)
-	}
-	const installation: { id: number } = await installationRes.json()
-
-	const tokenRes = await fetch(`${GH_API}/app/installations/${installation.id}/access_tokens`, {
-		method: 'POST',
-		headers: githubHeaders(jwt),
-	})
-	if (!tokenRes.ok) {
-		throw new Error(`创建前端仓库令牌失败: ${tokenRes.status}`)
-	}
-	const data: { token: string; expires_at?: string } = await tokenRes.json()
-	const expiresAt = data.expires_at ? Date.parse(data.expires_at) : Number.NaN
-	cachedFrontendToken = {
-		token: data.token,
-		expiresAt: Number.isFinite(expiresAt) ? expiresAt : Date.now() + 55 * 60 * 1000,
-	}
-	return cachedFrontendToken.token
-}
-
-/** 触发前端仓库的部署工作流；失败只记录警告，不影响内容保存。 */
-export async function triggerContentDeploy(): Promise<boolean> {
-	try {
-		const token = await getFrontendInstallationToken()
-		const res = await fetch(`${GH_API}/repos/${GITHUB_CONFIG.OWNER}/${FRONTEND_REPO}/dispatches`, {
-			method: 'POST',
-			headers: { ...githubHeaders(token), 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				event_type: DEPLOY_EVENT_TYPE,
-				client_payload: { branch: GITHUB_CONFIG.BRANCH },
-			}),
-		})
-		if (!res.ok) {
-			console.warn(`[deploy-trigger] 部署通知被拒绝: ${res.status}`)
-			return false
-		}
-		return true
-	} catch (error) {
-		console.warn('[deploy-trigger] 自动部署通知失败，稍后仍会由兜底流程更新', error)
-		return false
-	}
-}
 
 // Encode each path segment without encoding the slashes required by GitHub REST routes.
 function encodeGitHubPath(path: string): string {
@@ -266,10 +190,6 @@ export async function updateRef(token: string, owner: string, repo: string, ref:
 	if (res.status === 401) handle401Error()
 	if (res.status === 422) handle422Error()
 	if (!res.ok) throw new Error(`update ref failed: ${res.status}`)
-	if (repo === GITHUB_CONFIG.REPO) {
-		// 内容仓提交不会触发前端仓的部署工作流，这里主动通知一次（失败不影响保存）。
-		void triggerContentDeploy().catch((error) => console.warn('[deploy-trigger] 加载失败', error))
-	}
 }
 
 export async function readTextFileFromRepo(token: string | null | undefined, owner: string, repo: string, path: string, ref: string): Promise<string | null> {
